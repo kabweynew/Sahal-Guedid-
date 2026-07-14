@@ -695,8 +695,10 @@ input,select,textarea{font-family:inherit;color:var(--text)}
 .lineage-name{font-size:0.62rem;font-weight:700;color:var(--text);line-height:1.2;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .lineage-status-dot{
-  position:absolute;top:6px;right:6px;
-  width:8px;height:8px;border-radius:50%;
+  position:absolute;top:2px;right:2px;
+  width:14px;height:14px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:0.6rem;font-weight:900;line-height:1;color:#fff;
 }
 .lc-paid .lineage-status-dot{background:var(--success)}
 .lc-unpaid .lineage-status-dot{background:var(--danger)}
@@ -1460,6 +1462,7 @@ input,select,textarea{font-family:inherit;color:var(--text)}
     <div class="settings-section">
       <div class="sec-header"><div class="sec-title" data-i18n="set_import_export">Import / Export</div></div>
       <div class="settings-group">
+        <div class="settings-row" onclick="openPublicLinkModal()"><span class="settings-icon">🔗</span><span class="settings-label">Public Page Link</span><span class="settings-value">Share with anyone</span><span class="settings-arrow">›</span></div>
         <div class="settings-row" onclick="openShareModal()"><span class="settings-icon">📤</span><span class="settings-label" data-i18n="export_share">Export &amp; Share</span><span class="settings-value" data-i18n="export_formats">Excel · PDF · Text · PNG</span><span class="settings-arrow">›</span></div>
         <div class="settings-row" onclick="openImportModal()"><span class="settings-icon">📥</span><span class="settings-label" data-i18n="import_excel">Import from Excel</span><span class="settings-value" data-i18n="import_desc">Upload .xlsx file</span><span class="settings-arrow">›</span></div>
       </div>
@@ -1620,6 +1623,22 @@ input,select,textarea{font-family:inherit;color:var(--text)}
   </div>
 </div>
 
+<!-- Public link modal -->
+<div class="modal-backdrop" id="public-link-modal" onclick="closeModal('public-link-modal',event)">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Public Page Link</div>
+    <p style="font-size:0.82rem;color:var(--muted);line-height:1.5;margin-bottom:14px">
+      Anyone who opens this link sees the read-only Public Page (member list &amp; paid/unpaid status) — no login, no PIN, no admin access.
+    </p>
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <input class="input-field" type="text" id="public-link-field" readonly style="flex:1;font-size:0.78rem" onclick="this.select()">
+    </div>
+    <button class="btn-primary" onclick="copyPublicLink()">📋 Copy Link</button>
+    <button class="btn-secondary" style="margin-top:8px" onclick="closeModal('public-link-modal')">Close</button>
+  </div>
+</div>
+
 <!-- Add member modal -->
 <div class="modal-backdrop" id="add-member-modal" onclick="closeModal('add-member-modal',event)">
   <div class="modal-sheet" onclick="event.stopPropagation()">
@@ -1639,6 +1658,11 @@ input,select,textarea{font-family:inherit;color:var(--text)}
         <div id="add-name-dupe-warn" style="font-size:0.75rem;color:var(--danger);min-height:18px;margin-top:4px"></div>
       </div>
       <div><div class="input-label">Phone</div><input class="input-field" type="text" id="add-member-phone" placeholder="77 12 34 56"></div>
+      <div>
+        <div class="input-label">Family Group</div>
+        <input class="input-field" type="text" id="add-member-family" placeholder="e.g. Warsame Family (leave blank to auto-detect)" list="family-group-list">
+        <div style="font-size:0.72rem;color:var(--muted);margin-top:4px">Used to group members together on the Public Page. Leave blank to auto-group by surname.</div>
+      </div>
       <div id="add-member-cashier-row"><div class="input-label">Cashier</div>
         <select class="input-field" id="add-member-cashier"></select>
       </div>
@@ -1679,11 +1703,17 @@ input,select,textarea{font-family:inherit;color:var(--text)}
       <input type="hidden" id="edit-member-id">
       <div><div class="input-label">Full Name</div><input class="input-field" type="text" id="edit-member-name"></div>
       <div><div class="input-label">Phone</div><input class="input-field" type="text" id="edit-member-phone"></div>
+      <div>
+        <div class="input-label">Family Group</div>
+        <input class="input-field" type="text" id="edit-member-family" placeholder="e.g. Warsame Family (leave blank to auto-detect)" list="family-group-list">
+        <div style="font-size:0.72rem;color:var(--muted);margin-top:4px">Members with the same Family Group are shown together on the Public Page.</div>
+      </div>
       <div id="edit-member-cashier-row"><div class="input-label">Cashier</div>
         <select class="input-field" id="edit-member-cashier"></select>
       </div>
       <div><div class="input-label">Notes</div><textarea class="input-field" id="edit-member-notes" rows="2"></textarea></div>
     </div>
+    <datalist id="family-group-list"></datalist>
     <button class="btn-primary" onclick="confirmEditMember()">Save Changes</button>
     <button class="btn-secondary" style="margin-top:8px" onclick="closeModal('edit-member-modal')">Cancel</button>
     <button class="btn-danger" id="edit-member-delete-btn" style="margin-top:8px" onclick="deleteMemberFromEdit()">🗑️ Delete Member</button>
@@ -2308,6 +2338,10 @@ function updateLoginFamilyName() {
   }
 }
 
+function normalizePhone(p) {
+  return (p || '').toString().replace(/[^0-9]/g, '');
+}
+
 function doLogin() {
   const phone = document.getElementById('login-phone').value.trim();
   const pin = document.getElementById('login-pin').value.trim();
@@ -2331,7 +2365,7 @@ function doLogin() {
 
   if(loginRole === 'admin') {
     const admin = c.admin;
-    if(admin && phone === admin.phone && pin === admin.pin) {
+    if(admin && normalizePhone(phone) === normalizePhone(admin.phone) && pin === admin.pin) {
       currentRole = 'admin';
       saveSession({ role:'admin' });
       navigate('dashboard');
@@ -2341,7 +2375,7 @@ function doLogin() {
       showToast('⚠️ Incorrect phone or PIN');
     }
   } else {
-    const cashier = getCashiers().find(ca => ca.phone === phone);
+    const cashier = getCashiers().find(ca => normalizePhone(ca.phone) === normalizePhone(phone));
     if(cashier && cashier.pin === pin) {
       currentRole = 'cashier';
       activeCashierId = cashier.id;
@@ -2804,6 +2838,7 @@ function renderProfile() {
         <span class="badge ${isPaidThisMonth ? 'badge-success' : 'badge-danger'}">${isPaidThisMonth ? '✓ Paid' : '⏳ Unpaid'}</span>
         <span class="badge badge-accent">via ${c.cashier||'Unassigned'}</span>
       </div>
+      <div style="margin-top:12px;max-width:340px;margin-left:auto;margin-right:auto">${buildContactButtonsHtml(c.phone)}</div>
       <div class="profile-summary">
         <div class="profile-stat"><div class="profile-stat-val" style="color:var(--success)">${fmt(totalPaid)} DJF</div><div class="profile-stat-label" data-i18n="stat_paid">Total Paid</div></div>
         <div class="profile-stat"><div class="profile-stat-val" style="color:var(--danger)">${fmt(outstanding)} DJF</div><div class="profile-stat-label" data-i18n="stat_outstanding">Outstanding</div></div>
@@ -3161,6 +3196,33 @@ function getLineageName(fullName) {
   return parts[0] || '—';
 }
 
+// Manual family grouping: use the admin-assigned "family" field if set,
+// otherwise fall back to auto-detected surname grouping.
+function getFamilyGroup(m) {
+  if(m && m.family && m.family.trim()) return m.family.trim();
+  return getLineageName(m ? m.name : '');
+}
+
+function populateFamilyDatalist() {
+  const dl = document.getElementById('family-group-list');
+  if(!dl) return;
+  const contributors = getContributors();
+  const families = Array.from(new Set(contributors.map(m => getFamilyGroup(m)).filter(Boolean))).sort();
+  dl.innerHTML = families.map(f => `<option value="${f}"></option>`).join('');
+}
+
+function buildContactButtonsHtml(phone) {
+  if(!phone) {
+    return `<div style="font-size:0.78rem;color:var(--muted);text-align:center;padding:6px 0">No phone number on file</div>`;
+  }
+  const digits = normalizePhone(phone);
+  return `
+    <div style="display:flex;gap:8px">
+      <a href="tel:${phone}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;height:40px;border-radius:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:0.82rem;font-weight:700">📞 Call</a>
+      <a href="https://wa.me/${digits}" target="_blank" rel="noopener" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;height:40px;border-radius:10px;background:rgba(37,211,102,0.12);border:1px solid #25D366;color:#25D366;font-size:0.82rem;font-weight:700">💬 WhatsApp</a>
+    </div>`;
+}
+
 function openPublicMemberPanel(memberId) {
   const contributors = getContributors();
   const m = contributors.find(x => x.id === memberId);
@@ -3171,7 +3233,7 @@ function openPublicMemberPanel(memberId) {
   const contribAmt = getContributionAmount();
   const totalPaid = Object.values(m.payments || {}).filter(p => p.status === 'paid').reduce((s,p) => s+(p.amount||0), 0);
   const paidMonths = Object.values(m.payments || {}).filter(p => p.status === 'paid').length;
-  const lineage = getLineageName(m.name);
+  const lineage = getFamilyGroup(m);
 
   const panel = document.getElementById('pub-member-panel');
   const overlay = document.getElementById('pub-panel-overlay');
@@ -3189,6 +3251,7 @@ function openPublicMemberPanel(memberId) {
           ${isPaid?'✓ Paid this month':'⏳ Not yet paid'}
         </span>
       </div>
+      <div style="margin-top:12px">${buildContactButtonsHtml(m.phone)}</div>
     </div>
     <div class="pub-panel-stats">
       <div class="pub-panel-stat">
@@ -3311,7 +3374,7 @@ function renderPublicView() {
     // Group by grandfather's name (3rd word)
     const groups = {};
     wallMembers.forEach(c => {
-      const lineage = getLineageName(c.name);
+      const lineage = getFamilyGroup(c);
       if(!groups[lineage]) groups[lineage] = [];
       groups[lineage].push(c);
     });
@@ -3338,7 +3401,7 @@ function renderPublicView() {
             return `<div class="lineage-card ${isPd?'lc-paid':'lc-unpaid'}"
               onclick="openPublicMemberPanel('${c.id}')"
               title="${c.name}: ${isPd?'Paid':'Not yet paid'}">
-              <div class="lineage-status-dot"></div>
+              <div class="lineage-status-dot">${isPd?'✓':'✗'}</div>
               <div class="lineage-avatar">${initials(c.name)}</div>
               <div class="lineage-name">${c.name.split(' ').slice(0,2).join(' ')}</div>
             </div>`;
@@ -3576,12 +3639,13 @@ function openAddMemberModal() {
   }
   document.getElementById('add-member-amount').placeholder = String(getContributionAmount());
   // Clear fields
-  ['add-name-1','add-name-2','add-name-3','add-member-phone','add-member-amount'].forEach(id => {
+  ['add-member-fullname','add-member-phone','add-member-amount','add-member-family'].forEach(id => {
     const el = document.getElementById(id);
     if(el) el.value = '';
   });
-  document.getElementById('add-suggest-2').style.display = 'none';
-  document.getElementById('add-suggest-3').style.display = 'none';
+  populateFamilyDatalist();
+  const dw = document.getElementById('add-name-dupe-warn');
+  if(dw) { dw.textContent = ''; dw.dataset.warned = ''; }
   document.getElementById('add-member-modal').classList.add('open');
 }
 
@@ -3604,6 +3668,8 @@ function confirmAddMember() {
   }
   const status = document.getElementById('add-member-status').value;
   const amount = parseFloat(document.getElementById('add-member-amount').value) || getContributionAmount();
+  const familyEl = document.getElementById('add-member-family');
+  const family = familyEl ? familyEl.value.trim() : '';
   if(!name) { showToast('⚠️ Enter a name'); return; }
 
   // Exact duplicate check
@@ -3633,7 +3699,7 @@ function confirmAddMember() {
 
   c.contributors.push({
     id: 'c_' + Date.now(),
-    name, phone, cashier, status,
+    name, phone, cashier, status, family,
     amount: status === 'paid' ? amount : 0,
     date: status === 'paid' ? today() : '',
     notes: '',
@@ -3666,6 +3732,9 @@ function openEditMemberModal() {
   document.getElementById('edit-member-id').value = contributor.id;
   document.getElementById('edit-member-name').value = contributor.name;
   document.getElementById('edit-member-phone').value = contributor.phone || '';
+  populateFamilyDatalist();
+  const familyEl = document.getElementById('edit-member-family');
+  if(familyEl) familyEl.value = contributor.family || '';
   const row = document.getElementById('edit-member-cashier-row');
   if(currentRole === 'cashier') {
     row.style.display = 'none';
@@ -3703,6 +3772,8 @@ function confirmEditMember() {
   const oldName = contributor.name;
   contributor.name = newName;
   contributor.phone = document.getElementById('edit-member-phone').value.trim();
+  const editFamilyEl = document.getElementById('edit-member-family');
+  if(editFamilyEl) contributor.family = editFamilyEl.value.trim();
   if(currentRole === 'admin') {
     contributor.cashier = document.getElementById('edit-member-cashier').value;
   }
@@ -3837,7 +3908,7 @@ function confirmAddCashier() {
   if(!phone) { showToast('⚠️ Enter a phone number'); return; }
   if(!pin || pin.length < 4) { showToast('⚠️ PIN must be at least 4 digits'); return; }
 
-  if(getCashiers().find(ca => ca.phone === phone && !ca.isAdminCashier)) {
+  if(getCashiers().find(ca => normalizePhone(ca.phone) === normalizePhone(phone) && !ca.isAdminCashier)) {
     showToast('⚠️ That phone is already used by another cashier'); return;
   }
 
@@ -3902,7 +3973,7 @@ function confirmPromoteToCashier() {
   if(!member) return;
 
   // Check phone not already used
-  if(getCashiers().find(ca => ca.phone === phone && !ca.isAdminCashier)) {
+  if(getCashiers().find(ca => normalizePhone(ca.phone) === normalizePhone(phone) && !ca.isAdminCashier)) {
     showToast('⚠️ That phone is already used by another cashier'); return;
   }
 
@@ -4394,6 +4465,36 @@ function setLang(lang) {
 let selectedExportFormat = 'png';
 let importRows = [];
 
+function buildPublicLink() {
+  const url = new URL(window.location.href);
+  url.search = '';
+  url.hash = '';
+  url.searchParams.set('public', '1');
+  return url.toString();
+}
+
+function openPublicLinkModal() {
+  document.getElementById('public-link-field').value = buildPublicLink();
+  document.getElementById('public-link-modal').classList.add('open');
+}
+
+function copyPublicLink() {
+  const link = buildPublicLink();
+  const field = document.getElementById('public-link-field');
+  field.select();
+  if(navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(link).then(() => {
+      showToast('✅ Link copied!');
+    }).catch(() => {
+      document.execCommand('copy');
+      showToast('✅ Link copied!');
+    });
+  } else {
+    document.execCommand('copy');
+    showToast('✅ Link copied!');
+  }
+}
+
 function openShareModal() {
   selectedExportFormat = 'png';
   document.querySelectorAll('.export-fmt-btn').forEach(b => b.classList.remove('active'));
@@ -4867,10 +4968,22 @@ _tickClock();
 // Clear any saved session so login is always required when the app starts
 clearSession();
 
+function isPublicLinkMode() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('public') === '1' || window.location.hash === '#public';
+  } catch(e) { return false; }
+}
+
 function decideInitialScreen() {
   const camp = getCamp();
   if(!camp) {
     navigate('setup');
+    historyStack = [];
+    return;
+  }
+  if(isPublicLinkMode()) {
+    navigate('public');
     historyStack = [];
     return;
   }
@@ -4928,7 +5041,12 @@ function _bootApp() {
         renderAll();
         updateSyncStatus('live');
         // Now go to login so they pick Admin / Cashier / Public
-        navigate('login');
+        // (unless this is a public-only shared link)
+        if(isPublicLinkMode()) {
+          navigate('public');
+        } else {
+          navigate('login');
+        }
         historyStack = [];
       } else {
         // Truly no data anywhere — first time setup
