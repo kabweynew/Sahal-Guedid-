@@ -24,6 +24,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
 /* ═══════════════════════════════════════════
    TOKENS
@@ -1062,6 +1063,35 @@ input,select,textarea{font-family:inherit;color:var(--text)}
   min-height:160px;
 }
 #share-canvas-wrap canvas{max-width:100%;border-radius:var(--radius)}
+
+.heatmap-cell{cursor:pointer}
+.heatmap-cell.future{cursor:default}
+.pay-month-chips{max-height:170px;overflow-y:auto}
+.pay-chip.paid-done{opacity:.45;cursor:not-allowed;text-decoration:line-through}
+.pay-chip:disabled{opacity:.4;cursor:not-allowed}
+.extra-lvl{display:flex;flex-direction:column;align-items:center;gap:2px;height:auto!important;padding:10px 4px!important}
+.extra-lvl.active{background:var(--accent)!important;color:#fff!important;border-color:var(--accent)!important}
+.extra-lvl.active .extra-amt{color:#fff!important}
+.yr-nav-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:30px;height:30px;font-size:1rem;cursor:pointer}
+
+.fam-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px}
+.fam-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.fam-name{font-size:1rem;font-weight:800}
+.fam-sub{font-size:0.72rem;color:var(--muted);margin-top:2px}
+.fam-bar{height:8px;border-radius:6px;background:var(--surface2);overflow:hidden;margin:10px 0 8px}
+.fam-bar>div{height:100%;background:linear-gradient(90deg,#22C97A,#4F6EF7)}
+.fam-stats{display:flex;gap:8px;font-size:0.72rem;color:var(--muted);flex-wrap:wrap}
+.fam-stats b{color:var(--text)}
+.fam-actions{display:flex;gap:8px;margin-top:10px}
+.fam-actions button{flex:1;height:36px;font-size:0.78rem}
+.fam-member{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--border);font-size:0.82rem}
+.fam-member .fm-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+.fam-pill{font-size:0.68rem;font-weight:700;padding:2px 8px;border-radius:20px}
+.fam-pill.ok{background:rgba(34,201,122,.15);color:var(--success)}
+.fam-pill.no{background:rgba(247,90,90,.12);color:var(--danger)}
+.fam-pill.late{background:rgba(245,166,35,.15);color:var(--gold)}
+.fam-wa{background:rgba(37,211,102,.12);border:1px solid #25D366;color:#25D366;border-radius:8px;width:32px;height:30px;cursor:pointer;font-size:.85rem}
+.fx-sel{height:40px!important;font-size:0.8rem!important;padding:0 8px!important}
 </style>
 </head>
 <body>
@@ -1218,6 +1248,7 @@ input,select,textarea{font-family:inherit;color:var(--text)}
   <div class="bulk-toolbar" id="bulk-toolbar">
     <button class="bulk-cancel-btn" onclick="toggleBulkMode()">✕</button>
     <div class="bulk-toolbar-count" id="bulk-count-label">0 selected</div>
+    <button class="bulk-del-btn" style="background:var(--accent)" onclick="openBulkExtraModal()">🏷️ Level</button>
     <button class="bulk-del-btn" onclick="bulkDeleteSelected()">🗑️ Delete</button>
   </div>
   <!-- Select All bar -->
@@ -1231,10 +1262,14 @@ input,select,textarea{font-family:inherit;color:var(--text)}
     <div class="search-bar"><input type="text" id="member-search" data-i18n-placeholder="search_members" placeholder="Search members…" oninput="renderMembers()"></div>
     <div id="member-search-detail"></div>
     <div class="filter-tabs">
-      <button class="filter-tab active" data-filter="all" onclick="setMemberFilter('all', this)">All (<span id="filter-all-count">0</span>)</button>
-      <button class="filter-tab" data-filter="paid" onclick="setMemberFilter('paid', this)">Paid (<span id="filter-paid-count">0</span>)</button>
-      <button class="filter-tab" data-filter="unpaid" onclick="setMemberFilter('unpaid', this)">Unpaid (<span id="filter-unpaid-count">0</span>)</button>
-      <button class="filter-tab" data-filter="advance" onclick="setMemberFilter('advance', this)">Advance (<span id="filter-advance-count">0</span>)</button>
+      <button class="filter-tab active" data-filter="all" onclick="setMemberFilter('all', this)"><span data-i18n="f_all">All</span> (<span id="filter-all-count">0</span>)</button>
+      <button class="filter-tab" data-filter="paid" onclick="setMemberFilter('paid', this)"><span data-i18n="f_paid">Paid</span> (<span id="filter-paid-count">0</span>)</button>
+      <button class="filter-tab" data-filter="unpaid" onclick="setMemberFilter('unpaid', this)"><span data-i18n="f_unpaid">Unpaid</span> (<span id="filter-unpaid-count">0</span>)</button>
+      <button class="filter-tab" data-filter="advance" onclick="setMemberFilter('advance', this)"><span data-i18n="f_advance">Advance</span> (<span id="filter-advance-count">0</span>)</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <select class="input-field fx-sel" id="member-month-filter" style="flex:1" onchange="setViewMonthFromSelect(this.value)"></select>
+      <select class="input-field fx-sel" id="member-family-filter" style="flex:1" onchange="setMemberFamilyFilter(this.value)"></select>
     </div>
     <div id="members-list"></div>
   </div>
@@ -1257,6 +1292,23 @@ input,select,textarea{font-family:inherit;color:var(--text)}
 <!-- ═══════════════════════════════════════
      ⑤ CASHIER VIEW
 ════════════════════════════════════════ -->
+<div id="screen-families" class="screen">
+  <header class="topbar">
+    <div class="topbar-title" data-i18n="nav_families">Families</div>
+    <div class="topbar-controls">
+      <button class="icon-btn" onclick="openFamilyExport('')" title="Export">📤</button>
+    </div>
+  </header>
+  <div class="main">
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <select class="input-field fx-sel" id="fam-month-select" style="flex:1" onchange="setViewMonthFromSelect(this.value)"></select>
+    </div>
+    <div class="search-bar"><input type="text" id="family-search" placeholder="Search a family…" oninput="renderFamilies()"></div>
+    <div id="families-summary" style="font-size:0.78rem;color:var(--muted);margin-bottom:12px"></div>
+    <div id="families-list"></div>
+  </div>
+</div>
+
 <div id="screen-cashier" class="screen">
   <header class="topbar">
     <div class="topbar-logo">Sahal<span> Guedid</span></div>
@@ -1407,11 +1459,11 @@ input,select,textarea{font-family:inherit;color:var(--text)}
   <div class="main">
 
     <!-- Security Warning -->
-    <div id="security-warning-banner" style="display:none;background:rgba(247,90,90,0.1);border:1px solid rgba(247,90,90,0.3);border-radius:10px;padding:12px 14px;margin-bottom:16px;display:flex;gap:10px;align-items:flex-start">
+    <div id="security-warning-banner" style="display:none;background:rgba(247,90,90,0.1);border:1px solid rgba(247,90,90,0.3);border-radius:10px;padding:12px 14px;margin-bottom:16px;gap:10px;align-items:flex-start">
       <div style="font-size:1.1rem;flex-shrink:0">🔴</div>
       <div>
         <div style="font-size:0.82rem;font-weight:700;color:var(--danger);margin-bottom:3px">Security Alert</div>
-        <div style="font-size:0.75rem;color:var(--muted);line-height:1.5">Your app is publicly accessible. Change your PIN immediately if someone else has been controlling this app.</div>
+        <div style="font-size:0.75rem;color:var(--muted);line-height:1.5">For security, please set a new PIN. This notice disappears as soon as you change it.</div>
         <button onclick="openChangePinModal()" style="margin-top:8px;background:var(--danger);color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:0.78rem;font-weight:700;cursor:pointer">Change PIN Now</button>
       </div>
     </div>
@@ -1422,6 +1474,8 @@ input,select,textarea{font-family:inherit;color:var(--text)}
         <div class="settings-row" onclick="editCampaignName()"><span class="settings-icon">🏠</span><span class="settings-label" data-i18n="set_family_name">Family Name</span><span class="settings-value" id="settings-family-name">—</span><span class="settings-arrow">›</span></div>
         <div class="settings-row" onclick="editContributionAmount()"><span class="settings-icon">💰</span><span class="settings-label" data-i18n="set_contribution">Contribution Amount</span><span class="settings-value" id="settings-contribution">—</span><span class="settings-arrow">›</span></div>
         <div class="settings-row"><span class="settings-icon">📅</span><span class="settings-label" data-i18n="set_advance">Allow Advance Payments</span><div class="toggle on" id="advance-toggle" onclick="toggleAdvance()"></div></div>
+        <div class="settings-row" onclick="openProjectMonthsModal()"><span class="settings-icon">🗓️</span><span class="settings-label">Project Months</span><span class="settings-value" id="settings-project-months">—</span><span class="settings-arrow">›</span></div>
+        <div class="settings-row" onclick="openExtraSettingsModal()"><span class="settings-icon">🏷️</span><span class="settings-label">Extra Collection</span><span class="settings-value" id="settings-extra-name">—</span><span class="settings-arrow">›</span></div>
       </div>
     </div>
     <div class="settings-section">
@@ -1445,6 +1499,10 @@ input,select,textarea{font-family:inherit;color:var(--text)}
           <div><div class="perm-label" data-i18n="perm_see_reports">Access Reports tab</div><div class="perm-desc" data-i18n="perm_see_reports_desc">When ON, cashiers can view the summary report</div></div>
           <div class="toggle" id="perm-reports-toggle" onclick="toggleCashierPerm('seeReports')"></div>
         </div>
+        <div class="perm-row">
+          <div><div class="perm-label">Edit any member (no assignment needed)</div><div class="perm-desc">When ON, cashiers can see, edit and delete every member, even if not assigned to them</div></div>
+          <div class="toggle" id="perm-edit-all-toggle" onclick="toggleCashierPerm('canEditAll')"></div>
+        </div>
       </div>
     </div>
 
@@ -1463,8 +1521,9 @@ input,select,textarea{font-family:inherit;color:var(--text)}
       <div class="sec-header"><div class="sec-title" data-i18n="set_import_export">Import / Export</div></div>
       <div class="settings-group">
         <div class="settings-row" onclick="openPublicLinkModal()"><span class="settings-icon">🔗</span><span class="settings-label">Public Page Link</span><span class="settings-value">Share with anyone</span><span class="settings-arrow">›</span></div>
+        <div class="settings-row" onclick="openFamilyExport('')"><span class="settings-icon">👪</span><span class="settings-label">Export by family</span><span class="settings-value">PDF · Excel · Image</span><span class="settings-arrow">›</span></div>
         <div class="settings-row" onclick="openShareModal()"><span class="settings-icon">📤</span><span class="settings-label" data-i18n="export_share">Export &amp; Share</span><span class="settings-value" data-i18n="export_formats">Excel · PDF · Text · PNG</span><span class="settings-arrow">›</span></div>
-        <div class="settings-row" onclick="openImportModal()"><span class="settings-icon">📥</span><span class="settings-label" data-i18n="import_excel">Import from Excel</span><span class="settings-value" data-i18n="import_desc">Upload .xlsx file</span><span class="settings-arrow">›</span></div>
+        <div class="settings-row" onclick="openImportModal()"><span class="settings-icon">📥</span><span class="settings-label" data-i18n="import_excel">Import from Excel</span><span class="settings-value" data-i18n="import_desc">Excel · CSV · JSON</span><span class="settings-arrow">›</span></div>
       </div>
     </div>
 
@@ -1507,6 +1566,7 @@ input,select,textarea{font-family:inherit;color:var(--text)}
     <div class="settings-section">
       <div class="sec-header"><div class="sec-title">Install App</div></div>
       <div class="settings-group">
+        <div class="settings-row" onclick="openAppLinkModal()"><span class="settings-icon">🔗</span><span class="settings-label">App link</span><span class="settings-value">Copy · WhatsApp</span><span class="settings-arrow">›</span></div>
         <div class="settings-row" onclick="triggerInstall()" id="settings-install-row">
           <span class="settings-icon">📲</span>
           <span class="settings-label">Install Sahal Guedid</span>
@@ -1544,6 +1604,9 @@ input,select,textarea{font-family:inherit;color:var(--text)}
   </button>
   <button class="nav-item" onclick="navigate('members')" id="nav-members">
     <span class="nav-icon">👥</span><span data-i18n="nav_members">Members</span>
+  </button>
+  <button class="nav-item" onclick="navigate('families')" id="nav-families">
+    <span class="nav-icon">👪</span><span data-i18n="nav_families">Families</span>
   </button>
   <button class="nav-item" onclick="navigate('reports')" id="nav-reports">
     <span class="nav-icon">📊</span><span data-i18n="nav_reports">Reports</span>
@@ -1598,15 +1661,14 @@ input,select,textarea{font-family:inherit;color:var(--text)}
     <div class="modal-handle"></div>
     <div class="modal-title" data-i18n="record_payment">Record Payment</div>
     <p style="font-size:0.8rem;color:var(--muted);margin-bottom:12px" id="pay-modal-member-name">Member Name</p>
-    <div style="font-size:0.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Select months</div>
-    <div class="pay-month-chips" id="pay-month-chips">
-      <button class="pay-chip selected" data-month="0" onclick="toggleMonthChip(this)">Current</button>
-      <button class="pay-chip" data-month="1" onclick="toggleMonthChip(this)">Next</button>
-      <button class="pay-chip" data-month="2" onclick="toggleMonthChip(this)">+2</button>
-    </div>
+    <div style="font-size:0.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Months being paid (tap one or more)</div>
+    <div class="pay-month-chips" id="pay-month-chips"></div>
     <div style="margin-bottom:12px">
-      <div class="input-label">Amount (DJF)</div>
-      <input class="input-field" type="number" id="pay-modal-amount" placeholder="Enter amount" min="0">
+      <div class="input-label">Amount per month (DJF)</div>
+      <input class="input-field" type="number" id="pay-modal-amount" placeholder="Enter amount" min="0" oninput="updatePayTotal()">
+      <div id="pay-modal-total" style="font-size:0.78rem;color:var(--muted);margin:6px 0 10px"></div>
+      <div class="input-label">Date paid</div>
+      <input class="input-field" type="date" id="pay-modal-date">
     </div>
     <div style="margin-bottom:12px">
       <div class="input-label">Payment Method</div>
@@ -1802,6 +1864,7 @@ input,select,textarea{font-family:inherit;color:var(--text)}
       <button class="export-fmt-btn" onclick="selectExportFormat('pdf',this)">📄 PDF</button>
       <button class="export-fmt-btn" onclick="selectExportFormat('excel',this)">📊 Excel</button>
       <button class="export-fmt-btn" onclick="selectExportFormat('text',this)">📝 Text</button>
+      <button class="export-fmt-btn" onclick="selectExportFormat('json',this)">💾 Backup</button>
     </div>
 
     <div id="share-canvas-wrap" style="display:none"><canvas id="share-canvas"></canvas></div>
@@ -1819,9 +1882,9 @@ input,select,textarea{font-family:inherit;color:var(--text)}
     <p style="font-size:0.78rem;color:var(--muted);margin-bottom:16px;line-height:1.5" data-i18n="import_hint">Upload an .xlsx or .csv file. We'll import whatever columns exist — at minimum a name column. If phone or status columns are present they'll be imported too.</p>
     <div class="import-drop" id="import-drop" onclick="document.getElementById('import-file-input').click()">
       <div class="import-drop-icon">📂</div>
-      <div class="import-drop-text" data-i18n="import_drop">Tap to choose .xlsx or .csv file</div>
+      <div class="import-drop-text" data-i18n="import_drop">Tap to choose an Excel, CSV or JSON file</div>
     </div>
-    <input type="file" id="import-file-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleImportFile(this)">
+    <input type="file" id="import-file-input" accept=".xlsx,.xls,.xlsm,.xlsb,.ods,.csv,.tsv,.txt,.json" style="display:none" onchange="handleImportFile(this)">
     <div id="import-preview-wrap" style="display:none;margin-top:14px">
       <div class="sec-header" style="margin-bottom:6px">
         <div class="sec-title" data-i18n="import_preview">Preview</div>
@@ -1841,6 +1904,101 @@ input,select,textarea{font-family:inherit;color:var(--text)}
       <button class="btn-primary" onclick="confirmImport()" data-i18n="import_btn">Import Members</button>
     </div>
     <button class="btn-secondary" style="margin-top:8px" onclick="closeModal('import-modal');resetImport()" data-i18n="cancel">Cancel</button>
+  </div>
+</div>
+
+<!-- App link modal -->
+<div class="modal-backdrop" id="app-link-modal" onclick="closeModal('app-link-modal',event)">
+  <div class="modal-sheet" onclick="event.stopPropagation()" style="max-height:90vh;overflow-y:auto">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📲 Application link</div>
+    <p style="font-size:0.78rem;color:var(--muted);margin-bottom:12px">Send this link by WhatsApp. When people open it they can install the app on their phone (Android: “Install”, iPhone: Share → Add to Home Screen).</p>
+    <div id="app-link-warn" style="display:none;font-size:0.76rem;color:var(--gold);margin-bottom:10px">⚠️ This copy is opened from a file, so it has no web address. Put the app online (for example on GitHub Pages) and paste the address below.</div>
+    <input class="input-field" type="text" id="app-link-field" readonly onclick="this.select()" style="margin-bottom:8px">
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <button class="btn-primary" style="flex:1" onclick="copyAppLink()">📋 Copy</button>
+      <button class="btn-primary" style="flex:1;background:#25D366" onclick="shareAppLinkWhatsApp()">💬 WhatsApp</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <button class="btn-secondary" style="flex:1" onclick="shareAppLinkNative()">↗️ Share…</button>
+      <button class="btn-secondary" style="flex:1" onclick="triggerInstall()">⬇️ Install here</button>
+    </div>
+    <div class="input-label">Web address of the app (optional)</div>
+    <div style="display:flex;gap:8px">
+      <input class="input-field" type="url" id="app-url-input" placeholder="https://yourname.github.io/app/" style="flex:1;min-width:0">
+      <button class="btn-secondary" style="width:auto;padding:0 14px" onclick="saveAppUrl()">Save</button>
+    </div>
+    <button class="btn-secondary" style="margin-top:12px" onclick="closeModal('app-link-modal')">Cancel</button>
+  </div>
+</div>
+
+<!-- Family export modal -->
+<div class="modal-backdrop" id="family-export-modal" onclick="closeModal('family-export-modal',event)">
+  <div class="modal-sheet" onclick="event.stopPropagation()" style="max-height:92vh;overflow-y:auto">
+    <div class="modal-handle"></div>
+    <div class="modal-title">👪 Export by family</div>
+    <p style="font-size:0.76rem;color:var(--muted);margin-bottom:12px">One page (PDF), one sheet (Excel) or one picture (Image) per family.</p>
+    <div class="input-label">Family</div>
+    <select class="input-field fx-sel" id="fx-family" style="margin-bottom:12px"></select>
+    <div class="input-label">Period</div>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <select class="input-field fx-sel" id="fx-from" style="flex:1" onchange="fxRangeChanged()"></select>
+      <select class="input-field fx-sel" id="fx-to" style="flex:1" onchange="fxRangeChanged()"></select>
+    </div>
+    <div class="pay-month-chips" id="fx-chips" style="margin-bottom:6px"></div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <button class="btn-secondary" style="height:32px;font-size:0.75rem" onclick="fxSelectAll(true)">All months</button>
+      <button class="btn-secondary" style="height:32px;font-size:0.75rem" onclick="fxSelectAll(false)">None</button>
+    </div>
+    <div class="input-label">Content</div>
+    <div class="export-format-grid" style="margin-bottom:12px">
+      <button class="export-fmt-btn active" id="fx-mode-detail" onclick="fxSetMode('detail')">📅 Month by month</button>
+      <button class="export-fmt-btn" id="fx-mode-recap" onclick="fxSetMode('recap')">🧾 Recap</button>
+    </div>
+    <div class="input-label">Format</div>
+    <div class="export-format-grid" style="margin-bottom:14px">
+      <button class="export-fmt-btn active" id="fx-fmt-pdf" onclick="fxSetFormat('pdf')">📄 PDF</button>
+      <button class="export-fmt-btn" id="fx-fmt-excel" onclick="fxSetFormat('excel')">📊 Excel</button>
+      <button class="export-fmt-btn" id="fx-fmt-png" onclick="fxSetFormat('png')">🖼️ Image</button>
+    </div>
+    <button class="btn-primary" onclick="runFamilyExport()">Export</button>
+    <button class="btn-secondary" style="margin-top:8px" onclick="closeModal('family-export-modal')">Cancel</button>
+  </div>
+</div>
+
+<!-- Project months modal -->
+<div class="modal-backdrop" id="project-months-modal" onclick="closeModal('project-months-modal',event)">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🗓️ Project Months</div>
+    <p style="font-size:0.78rem;color:var(--muted);margin-bottom:14px">Contributions are tracked from the start month until the project is closed. Members can pay any month in this range (past or future).</p>
+    <div style="margin-bottom:12px"><div class="input-label">First month of the project</div><input class="input-field" type="month" id="pm-start"></div>
+    <div style="margin-bottom:16px"><div class="input-label">Last month (leave empty while the project is open)</div><input class="input-field" type="month" id="pm-end"></div>
+    <button class="btn-primary" onclick="saveProjectMonths()">Save</button>
+    <button class="btn-secondary" style="margin-top:8px" onclick="closeModal('project-months-modal')">Cancel</button>
+  </div>
+</div>
+
+<!-- Extra collection settings modal -->
+<div class="modal-backdrop" id="extra-settings-modal" onclick="closeModal('extra-settings-modal',event)">
+  <div class="modal-sheet" onclick="event.stopPropagation()" style="max-height:88vh;overflow-y:auto">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🏷️ Extra Collection</div>
+    <div style="margin-bottom:12px"><div class="input-label">Name of the collection</div><input class="input-field" type="text" id="extra-name-input" maxlength="40" placeholder="e.g. Wedding fund"></div>
+    <div class="input-label" style="margin-bottom:6px">Three levels (icon · name · amount in DJF)</div>
+    <div id="extra-levels-wrap"></div>
+    <button class="btn-primary" style="margin-top:8px" onclick="saveExtraSettings()">Save</button>
+    <button class="btn-secondary" style="margin-top:8px" onclick="closeModal('extra-settings-modal')">Cancel</button>
+  </div>
+</div>
+
+<!-- Bulk extra level modal -->
+<div class="modal-backdrop" id="bulk-extra-modal" onclick="closeModal('bulk-extra-modal',event)">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="bulk-extra-title">Set level</div>
+    <div id="bulk-extra-options" style="display:flex;flex-direction:column;gap:8px"></div>
+    <button class="btn-secondary" style="margin-top:12px" onclick="closeModal('bulk-extra-modal')">Cancel</button>
   </div>
 </div>
 
@@ -2029,7 +2187,9 @@ let cashierBulkMode = false;
 let cashierBulkSelected = new Set();
 let selectedMemberId = null;
 let payMethod = 'waafi';
-let currentLang = 'en';
+let profileYear = null;
+let currentLang = (function(){ try { return localStorage.getItem('fc_lang') || 'fr'; } catch(e) { return 'fr'; } })();
+function L(en, fr) { return currentLang === 'fr' ? fr : en; }
 let dark = true;
 
 /* ════════════════════════════════════════
@@ -2077,15 +2237,819 @@ function getPaymentForMonth(contributor, month, year) {
   }
   return { status: 'unpaid', amount: 0, date: null };
 }
+
+/* ════════════════════════════════════════
+   PROJECT MONTHS, EXTRA COLLECTION, PERMISSIONS, EXPORT HELPERS
+════════════════════════════════════════ */
+function escX(t) { return String(t == null ? '' : t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function keyLabel(k) { return k ? getMonthName(parseInt(k.slice(5,7),10)-1) + ' ' + k.slice(0,4) : ''; }
+
+function getProjectMonths() {
+  const camp = getCamp();
+  const now = new Date();
+  const okKey = k => typeof k === 'string' && /^\d{4}-\d{2}$/.test(k);
+  let sy, sm;
+  if(camp && okKey(camp.startMonth)) { sy = +camp.startMonth.slice(0,4); sm = +camp.startMonth.slice(5,7) - 1; }
+  else {
+    let earliest = null;
+    ((camp && camp.contributors) || []).forEach(m => Object.keys(m.payments || {}).forEach(k => { if(!earliest || k < earliest) earliest = k; }));
+    if(earliest) { sy = +earliest.slice(0,4); sm = +earliest.slice(5,7) - 1; }
+    else { sy = now.getFullYear(); sm = 0; }
+  }
+  let ey, em;
+  if(camp && okKey(camp.endMonth)) { ey = +camp.endMonth.slice(0,4); em = +camp.endMonth.slice(5,7) - 1; }
+  else { const d = new Date(now.getFullYear(), now.getMonth() + 3, 1); ey = d.getFullYear(); em = d.getMonth(); }
+  // always cover months that already have payments
+  ((camp && camp.contributors) || []).forEach(m => Object.keys(m.payments || {}).forEach(k => {
+    if(!okKey(k)) return;
+    const y = +k.slice(0,4), mo = +k.slice(5,7) - 1;
+    if(y < sy || (y === sy && mo < sm)) { sy = y; sm = mo; }
+    if(y > ey || (y === ey && mo > em)) { ey = y; em = mo; }
+  }));
+  const out = [];
+  let y = sy, m = sm;
+  while((y < ey || (y === ey && m <= em)) && out.length < 240) {
+    out.push({ key: monthKey(m, y), month: m, year: y });
+    m++; if(m > 11) { m = 0; y++; }
+  }
+  return out;
+}
+
+function openProjectMonthsModal() {
+  const camp = getCamp(); if(!camp) return;
+  document.getElementById('pm-start').value = camp.startMonth || '';
+  document.getElementById('pm-end').value = camp.endMonth || '';
+  document.getElementById('project-months-modal').classList.add('open');
+}
+function saveProjectMonths() {
+  const camp = getCamp(); if(!camp) return;
+  const st = document.getElementById('pm-start').value;
+  const en = document.getElementById('pm-end').value;
+  if(!st) { showToast('⚠️ Choose the first month'); return; }
+  if(en && en < st) { showToast('⚠️ Last month is before the first month'); return; }
+  camp.startMonth = st;
+  camp.endMonth = en || '';
+  closeModal('project-months-modal');
+  saveAll();
+  showToast('🗓️ Project months saved');
+}
+
+/* permissions */
+function canEditMember(m) {
+  if(currentRole !== 'cashier' || isAdminActingAsCashier) return true;
+  if(getCashierPerms().canEditAll) return true;
+  const me = getCurrentCashier();
+  return !!(me && m && m.cashier === me.name);
+}
+
+/* Extra collection */
+const EXTRA_ICON_CHOICES = ['🌱','🌿','🌳','🥉','🥈','🥇','⭐','🌟','💎','🔹','🔸','🟢','🟡','🔴','❤️','🎗️'];
+function getExtra() {
+  const camp = getCamp();
+  const def = { name: 'Extra Collection', levels: [
+    { id: 'low',  label: 'Lower',  amount: 500,  icon: '🌱' },
+    { id: 'mid',  label: 'Middle', amount: 1000, icon: '🌿' },
+    { id: 'high', label: 'Higher', amount: 2000, icon: '🌳' } ] };
+  if(!camp || !camp.extra) return def;
+  return { name: camp.extra.name || def.name,
+    levels: def.levels.map((d, i) => Object.assign({}, d, ((camp.extra.levels || [])[i]) || {}, { id: d.id })) };
+}
+function getExtraLevel(m) {
+  if(!m || !m.extraLevel) return null;
+  return getExtra().levels.find(l => l.id === m.extraLevel) || null;
+}
+function extraIconHtml(m) {
+  const l = getExtraLevel(m);
+  return l ? ` <span title="${escX(getExtra().name)} · ${escX(l.label)}" style="font-size:0.9em">${l.icon}${m.extraPaid ? '✓' : ''}</span>` : '';
+}
+function openExtraSettingsModal() {
+  const ex = getExtra();
+  document.getElementById('extra-name-input').value = ex.name;
+  document.getElementById('extra-levels-wrap').innerHTML = ex.levels.map((l, i) => `
+    <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center">
+      <select class="input-field" id="extra-icon-${i}" style="width:70px;flex-shrink:0;padding:0 6px">
+        ${EXTRA_ICON_CHOICES.map(ic => `<option value="${ic}" ${ic === l.icon ? 'selected' : ''}>${ic}</option>`).join('')}
+      </select>
+      <input class="input-field" type="text" id="extra-label-${i}" value="${escX(l.label)}" maxlength="20" style="flex:1;min-width:0">
+      <input class="input-field" type="number" id="extra-amount-${i}" value="${l.amount}" min="0" style="width:96px;flex-shrink:0">
+    </div>`).join('');
+  document.getElementById('extra-settings-modal').classList.add('open');
+}
+function saveExtraSettings() {
+  const camp = getCamp(); if(!camp) return;
+  const name = document.getElementById('extra-name-input').value.trim();
+  if(!name) { showToast('⚠️ Enter a name'); return; }
+  camp.extra = { name, levels: [0,1,2].map(i => ({
+    icon: document.getElementById('extra-icon-' + i).value,
+    label: document.getElementById('extra-label-' + i).value.trim() || ['Lower','Middle','Higher'][i],
+    amount: parseFloat(document.getElementById('extra-amount-' + i).value) || 0 })) };
+  closeModal('extra-settings-modal');
+  saveAll();
+  showToast('🏷️ Extra collection saved');
+}
+function buildExtraSectionHtml(c) {
+  const ex = getExtra();
+  const cur = getExtraLevel(c);
+  return `
+    <div class="sec-header" style="margin-top:4px"><div class="sec-title">${escX(ex.name)}</div></div>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      ${ex.levels.map(l => `<button class="btn-secondary extra-lvl${cur && cur.id === l.id ? ' active' : ''}" style="flex:1" onclick="setMemberExtra('${c.id}','${l.id}')">
+        <span style="font-size:1.4rem">${l.icon}</span><span style="font-size:0.75rem;font-weight:700">${escX(l.label)}</span><span class="extra-amt" style="font-size:0.7rem;color:var(--muted)">${fmt(l.amount)} DJF</span></button>`).join('')}
+    </div>
+    ${cur ? `<div style="display:flex;gap:8px;margin-bottom:16px">
+      <button class="btn-secondary" style="flex:1" onclick="toggleExtraPaid('${c.id}')">${c.extraPaid ? '✓ Paid — tap to undo' : '💰 Mark ' + escX(ex.name) + ' as paid'}</button>
+      <button class="btn-secondary" style="width:auto;padding:0 14px" title="Remove level" onclick="setMemberExtra('${c.id}','')">✕</button></div>` : '<div style="font-size:0.75rem;color:var(--muted);margin-bottom:16px">Tap a level to put this person in a category.</div>'}`;
+}
+function setMemberExtra(id, levelId) {
+  const camp = getCamp(); if(!camp) return;
+  const m = camp.contributors.find(x => x.id === id); if(!m) return;
+  if(!canEditMember(m)) { showToast('⚠️ You can only edit your own members'); return; }
+  if(levelId === (m.extraLevel || '') ) levelId = '';   // tap same level again = remove
+  m.extraLevel = levelId;
+  if(!levelId) { m.extraPaid = false; m.extraPaidDate = ''; }
+  saveAll();
+}
+function toggleExtraPaid(id) {
+  const camp = getCamp(); if(!camp) return;
+  const m = camp.contributors.find(x => x.id === id); if(!m || !m.extraLevel) return;
+  if(!canEditMember(m)) { showToast('⚠️ You can only edit your own members'); return; }
+  m.extraPaid = !m.extraPaid;
+  m.extraPaidDate = m.extraPaid ? today() : '';
+  saveAll();
+}
+function openBulkExtraModal() {
+  if(bulkSelected.size === 0) { showToast('⚠️ Select at least one member'); return; }
+  const ex = getExtra();
+  document.getElementById('bulk-extra-title').textContent = `${ex.name} — set level for ${bulkSelected.size} member(s)`;
+  document.getElementById('bulk-extra-options').innerHTML = ex.levels.map(l =>
+    `<button class="btn-secondary" style="display:flex;align-items:center;gap:10px;justify-content:flex-start;padding:0 14px" onclick="applyBulkExtra('${l.id}')"><span style="font-size:1.4rem">${l.icon}</span><span>${escX(l.label)} · ${fmt(l.amount)} DJF</span></button>`).join('')
+    + `<button class="btn-secondary" onclick="applyBulkExtra('')">✕ Remove level</button>`;
+  document.getElementById('bulk-extra-modal').classList.add('open');
+}
+function applyBulkExtra(levelId) {
+  const camp = getCamp(); if(!camp) return;
+  let n = 0, skipped = 0;
+  bulkSelected.forEach(id => {
+    const m = camp.contributors.find(x => x.id === id); if(!m) return;
+    if(!canEditMember(m)) { skipped++; return; }
+    m.extraLevel = levelId;
+    if(!levelId) { m.extraPaid = false; m.extraPaidDate = ''; }
+    n++;
+  });
+  closeModal('bulk-extra-modal');
+  saveAll();
+  showToast(`🏷️ ${n} member(s) updated${skipped ? ', ' + skipped + ' not allowed' : ''}`);
+}
+
+/* Heatmap with project range + tap to pay/undo */
+function shiftProfileYear(d) { profileYear = (profileYear == null ? currentYear : profileYear) + d; renderProfile(); }
+function buildHeatmapHtml(c) {
+  const months = getProjectMonths();
+  const keys = new Set(months.map(m => m.key));
+  const years = months.map(m => m.year);
+  const minY = Math.min(...years), maxY = Math.max(...years);
+  let hy = profileYear == null ? currentYear : profileYear;
+  hy = Math.max(minY, Math.min(maxY, hy));
+  const nowKey = monthKey(new Date().getMonth(), new Date().getFullYear());
+  const cells = Array.from({length: 12}, (_, i) => {
+    const key = monthKey(i, hy);
+    const inRange = keys.has(key);
+    const mp = getPaymentForMonth(c, i, hy);
+    const isPaid = mp.status === 'paid';
+    const state = isPaid ? 'paid' : !inRange ? 'future' : (key <= nowKey ? 'missed' : 'pending');
+    const clickable = inRange || isPaid;
+    return `<div class="heatmap-cell ${state}" ${clickable ? `onclick="heatmapTap('${c.id}','${key}')"` : ''}>
+      <div class="heatmap-month">${getMonthName(i)}</div>
+      <div class="heatmap-status">${isPaid ? '✅' : !inRange ? '·' : (key <= nowKey ? '✗' : '○')}</div>
+      <div class="heatmap-date">${isPaid ? fmtDate(mp.date) : ''}</div>
+    </div>`;
+  }).join('');
+  return `<div class="heatmap-year">
+    <div class="heatmap-year-title" style="display:flex;align-items:center;justify-content:center;gap:14px">
+      <button class="yr-nav-btn" onclick="shiftProfileYear(-1)" ${hy <= minY ? 'disabled style="opacity:.3"' : ''}>‹</button>${hy}
+      <button class="yr-nav-btn" onclick="shiftProfileYear(1)" ${hy >= maxY ? 'disabled style="opacity:.3"' : ''}>›</button>
+    </div>
+    <div class="heatmap-grid">${cells}</div>
+    <div style="font-size:0.72rem;color:var(--muted);text-align:center;margin-top:6px">Tap a month to record a payment (or undo a paid one)</div>
+  </div>`;
+}
+function heatmapTap(id, key) {
+  const camp = getCamp(); if(!camp) return;
+  const m = camp.contributors.find(x => x.id === id); if(!m) return;
+  const y = parseInt(key.slice(0,4), 10), mo = parseInt(key.slice(5,7), 10) - 1;
+  if(getPaymentForMonth(m, mo, y).status === 'paid') {
+    if(!confirm(`Mark ${getMonthName(mo)} ${y} as unpaid for ${m.name}?`)) return;
+    if(m.payments) delete m.payments[key];
+    if(m.status === 'paid' && m.date && m.date.startsWith(key)) { m.status = 'unpaid'; m.amount = 0; }
+    saveAll();
+    showToast(`✓ ${getMonthName(mo)} ${y} marked unpaid`);
+  } else {
+    selectedMemberId = id;
+    openPayModalForProfile(key);
+  }
+}
+
+/* Export / import helpers */
+function getPaidKeys(m) {
+  const set = new Set(Object.keys(m.payments || {}).filter(k => m.payments[k] && m.payments[k].status === 'paid'));
+  if(m.status === 'paid' && m.date && /^\d{4}-\d{2}/.test(m.date)) set.add(m.date.slice(0,7));
+  return [...set].sort();
+}
+function paidAmountForKey(m, k) {
+  if(m.payments && m.payments[k]) return m.payments[k].amount || 0;
+  return (m.status === 'paid' && m.date && m.date.startsWith(k)) ? (m.amount || 0) : 0;
+}
+function buildMemberExportRows() {
+  const ex = getExtra();
+  const head = ['Full Name', 'Phone', 'Months Paid (count)', 'Months Paid (list)', 'Total Paid (DJF)', 'Cashier', 'Extra Level', 'Extra Paid'];
+  const rows = getContributors().map(m => {
+    const keys = getPaidKeys(m);
+    const total = keys.reduce((s, k) => s + paidAmountForKey(m, k), 0);
+    const lvl = getExtraLevel(m);
+    return [m.name, m.phone || '', keys.length, keys.map(keyLabel).join(', '), total, m.cashier || '', lvl ? lvl.label : '', lvl ? (m.extraPaid ? 'Yes' : 'No') : ''];
+  });
+  return { head, rows, ex };
+}
+function buildGridRows() {
+  const contributors = getContributors();
+  const set = new Set(getProjectMonths().map(x => x.key));
+  contributors.forEach(m => getPaidKeys(m).forEach(k => set.add(k)));
+  const keys = [...set].sort();
+  const head = ['Full Name', 'Phone', ...keys.map(keyLabel)];
+  const rows = contributors.map(m => [m.name, m.phone || '', ...keys.map(k => { const a = paidAmountForKey(m, k); return getPaidKeys(m).includes(k) ? (a || 'Paid') : ''; })]);
+  return { head, rows };
+}
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+function exportExcelFile() {
+  const camp = getCamp();
+  const base = (camp ? camp.name.replace(/\s+/g, '_') : 'FamilyFund') + '_' + new Date().toISOString().slice(0,10);
+  const { head, rows } = buildMemberExportRows();
+  if(window.XLSX) {
+    const wb = XLSX.utils.book_new();
+    const ws1 = XLSX.utils.aoa_to_sheet([head, ...rows]);
+    ws1['!cols'] = [{wch:28},{wch:16},{wch:12},{wch:50},{wch:16},{wch:16},{wch:12},{wch:10}];
+    XLSX.utils.book_append_sheet(wb, ws1, 'Summary');
+    const g = buildGridRows();
+    const ws2 = XLSX.utils.aoa_to_sheet([g.head, ...g.rows]);
+    ws2['!cols'] = [{wch:28},{wch:16}, ...g.head.slice(2).map(() => ({wch:11}))];
+    XLSX.utils.book_append_sheet(wb, ws2, 'Monthly Grid');
+    XLSX.writeFile(wb, base + '.xlsx');
+    showToast('📊 Excel exported');
+  } else {
+    const q = v => '"' + String(v).replace(/"/g, '""') + '"';
+    const csv = '\ufeff' + [head, ...rows].map(r => r.map(q).join(',')).join('\n');
+    downloadBlob(new Blob([csv], {type: 'text/csv;charset=utf-8'}), base + '.csv');
+    showToast('📊 CSV exported (Excel library unavailable)');
+  }
+}
+function exportJsonBackup() {
+  const camp = getCamp(); if(!camp) return;
+  const data = { app: 'FamilyFund', version: 1, exportedAt: new Date().toISOString(), name: camp.name,
+    startMonth: camp.startMonth || '', endMonth: camp.endMonth || '', extra: camp.extra || null,
+    contributors: camp.contributors.map(m => ({ name: m.name, phone: m.phone || '', cashier: m.cashier || '', family: m.family || '', notes: m.notes || '',
+      payments: m.payments || {}, extraLevel: m.extraLevel || '', extraPaid: !!m.extraPaid, extraPaidDate: m.extraPaidDate || '' })) };
+  downloadBlob(new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'}), (camp.name.replace(/\s+/g, '_')) + '_backup_' + new Date().toISOString().slice(0,10) + '.json');
+  showToast('💾 Backup exported');
+}
+function parseMonthTokens(str) {
+  const out = [];
+  const camp = getCamp();
+  const pm = getProjectMonths()[0] || { year: currentYear, month: 0 };
+  const EN = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+  const FR = { janv:0, 'févr':1, fevr:1, avr:3, mai:4, juin:5, juil:6, 'août':7, aout:7, sept:8, 'déc':11 };
+  String(str == null ? '' : str).split(/[,;|\n]+/).forEach(raw => {
+    const t = raw.trim().toLowerCase(); if(!t) return;
+    let m = t.match(/^(\d{4})[-\/](\d{1,2})$/);
+    if(m) { out.push(monthKey(+m[2] - 1, +m[1])); return; }
+    m = t.match(/^([a-zéûè]+)\.?\s*'?(\d{2}|\d{4})?$/);
+    if(!m) return;
+    let mi = EN.indexOf(m[1].slice(0,3));
+    if(mi < 0) { const f = Object.keys(FR).find(k => m[1].startsWith(k)); if(f) mi = FR[f]; }
+    if(mi < 0) return;
+    let y;
+    if(m[2]) y = m[2].length === 2 ? 2000 + +m[2] : +m[2];
+    else y = mi >= pm.month ? pm.year : pm.year + 1;
+    out.push(monthKey(mi, y));
+  });
+  return out;
+}
+function matchExtraLevel(v) {
+  const t = String(v == null ? '' : v).trim().toLowerCase(); if(!t) return '';
+  const l = getExtra().levels.find(l => l.id === t || l.label.toLowerCase() === t || l.icon === t.replace(/\s/g, ''));
+  return l ? l.id : '';
+}
+
+
+/* ════════════════════════════════════════
+   FRENCH HELPERS (DOM + toasts)
+════════════════════════════════════════ */
+const FR_DOM = {
+  'Security Alert':'Alerte de sécurité',
+  'For security, please set a new PIN. This notice disappears as soon as you change it.':'Par sécurité, définissez un nouveau PIN. Cet avis disparaît dès que vous le changez.',
+  'Change PIN Now':'Changer le PIN maintenant',
+  'Project Months':'Mois du projet','🗓️ Project Months':'🗓️ Mois du projet',
+  'Extra Collection':'Collecte supplémentaire','🏷️ Extra Collection':'🏷️ Collecte supplémentaire',
+  'Edit any member (no assignment needed)':'Modifier tout membre (sans affectation)',
+  'When ON, cashiers can see, edit and delete every member, even if not assigned to them':'Si activé, les caissiers voient, modifient et suppriment tous les membres, même non affectés',
+  'Contributions are tracked from the start month until the project is closed. Members can pay any month in this range (past or future).':'Les cotisations sont suivies du mois de départ jusqu\'à la clôture du projet. Chacun peut payer n\'importe quel mois de cette période (passé ou futur).',
+  'First month of the project':'Premier mois du projet',
+  'Last month (leave empty while the project is open)':'Dernier mois (laisser vide tant que le projet est ouvert)',
+  'Name of the collection':'Nom de la collecte',
+  'Three levels (icon · name · amount in DJF)':'Trois niveaux (icône · nom · montant en DJF)',
+  'Save':'Enregistrer','Cancel':'Annuler','Export':'Exporter','Copy':'Copier',
+  'Months being paid (tap one or more)':'Mois payés (touchez un ou plusieurs)',
+  'Amount per month (DJF)':'Montant par mois (DJF)','Date paid':'Date de paiement','Payment Method':'Mode de paiement',
+  'Confirm Payment':'Confirmer le paiement',
+  '🏷️ Level':'🏷️ Niveau','🗑️ Delete':'🗑️ Supprimer',
+  '💾 Backup':'💾 Sauvegarde','📝 Text':'📝 Texte','📄 PDF':'📄 PDF','🖼️ Image':'🖼️ Image',
+  'Public Page Link':'Lien de la page publique','Share with anyone':'À partager avec tous',
+  'Export & Share':'Exporter et partager','Excel · PDF · Text · PNG':'Excel · PDF · Texte · PNG',
+  'Excel · CSV · JSON':'Excel · CSV · JSON','Import from Excel':'Importer un fichier',
+  'Tap to choose an Excel, CSV or JSON file':'Touchez pour choisir un fichier Excel, CSV ou JSON',
+  'Export by family':'Exporter par famille','PDF · Excel · Image':'PDF · Excel · Image',
+  '👪 Export by family':'👪 Exporter par famille',
+  'One page (PDF), one sheet (Excel) or one picture (Image) per family.':'Une page (PDF), une feuille (Excel) ou une image par famille.',
+  'Family':'Famille','Period':'Période','Content':'Contenu','Format':'Format',
+  'All months':'Tous les mois','None':'Aucun',
+  '📅 Month by month':'📅 Mois par mois','🧾 Recap':'🧾 Récapitulatif',
+  'App link':'Lien de l\'application','Copy · WhatsApp':'Copier · WhatsApp',
+  '📲 Application link':'📲 Lien de l\'application',
+  'Send this link by WhatsApp. When people open it they can install the app on their phone (Android: “Install”, iPhone: Share → Add to Home Screen).':'Envoyez ce lien par WhatsApp. En l\'ouvrant, chacun peut installer l\'application (Android : « Installer », iPhone : Partager → Sur l\'écran d\'accueil).',
+  '⚠️ This copy is opened from a file, so it has no web address. Put the app online (for example on GitHub Pages) and paste the address below.':'⚠️ Cette copie est ouverte depuis un fichier, elle n\'a donc pas d\'adresse web. Mettez l\'application en ligne (par ex. GitHub Pages) et collez l\'adresse ci-dessous.',
+  '📋 Copy':'📋 Copier','↗️ Share…':'↗️ Partager…','⬇️ Install here':'⬇️ Installer ici',
+  'Web address of the app (optional)':'Adresse web de l\'application (facultatif)',
+  'Install App':'Installer l\'application','Tap to install':'Touchez pour installer',
+  'Jan':'Janv.','Feb':'Févr.','Mar':'Mars','Apr':'Avr.','May':'Mai','Jun':'Juin','Jul':'Juil.','Aug':'Août','Sep':'Sept.','Oct':'Oct.','Nov':'Nov.','Dec':'Déc.',
+  'Select month':'Choisir le mois'
+};
+const FR_PLACEHOLDER = { 'Search a family…':'Rechercher une famille…', 'e.g. Wedding fund':'ex. Fonds mariage', 'https://yourname.github.io/app/':'https://votrenom.github.io/app/' };
+const FR_TOAST = {
+  '⚠️ Select at least one month':'⚠️ Choisissez au moins un mois','⚠️ Choose the first month':'⚠️ Choisissez le premier mois',
+  '⚠️ Last month is before the first month':'⚠️ Le dernier mois est avant le premier','🗓️ Project months saved':'🗓️ Mois du projet enregistrés',
+  '⚠️ Enter a name':'⚠️ Entrez un nom','🏷️ Extra collection saved':'🏷️ Collecte supplémentaire enregistrée',
+  '⚠️ You can only edit your own members':'⚠️ Vous ne pouvez modifier que vos propres membres',
+  '⚠️ Select at least one member':'⚠️ Choisissez au moins un membre','📊 Excel exported':'📊 Excel exporté','💾 Backup exported':'💾 Sauvegarde exportée',
+  '✅ Permission enabled':'✅ Autorisation activée','🔒 Permission disabled':'🔒 Autorisation désactivée',
+  '✅ Link copied!':'✅ Lien copié !','⚠️ File appears empty':'⚠️ Le fichier semble vide','⚠️ No name column found':'⚠️ Aucune colonne « nom » trouvée',
+  '⚠️ Invalid JSON file':'⚠️ Fichier JSON invalide','⚠️ No members found in file':'⚠️ Aucun membre dans le fichier',
+  '⚠️ Enter valid amount':'⚠️ Montant invalide','🔒 PIN changed successfully':'🔒 PIN modifié avec succès',
+  '⚠️ Current PIN is incorrect':'⚠️ Le PIN actuel est incorrect',
+  '⚠️ Choose at least one month':'⚠️ Choisissez au moins un mois','⚠️ Nothing to export':'⚠️ Rien à exporter',
+  '⚠️ Allow pop-ups to print the PDF':'⚠️ Autorisez les pop-ups pour imprimer le PDF',
+  '⚠️ Excel library not loaded':'⚠️ Bibliothèque Excel non chargée','✅ Address saved':'✅ Adresse enregistrée',
+  '⚠️ No web address yet':'⚠️ Pas encore d\'adresse web','🖼️ Images exported':'🖼️ Images exportées','📄 PDF print dialog opened':'📄 Fenêtre d\'impression PDF ouverte'
+};
+const FR_TOAST_RX = [
+  [/^✓ (.+) marked unpaid for (.+)$/, (m)=>`✓ ${m[1]} marqué non payé pour ${m[2]}`],
+  [/^✓ (.+) marked paid for (.+)$/, (m)=>`✓ ${m[1]} marqué payé pour ${m[2]}`],
+  [/^✅ (.+) — (\d+) months? paid \((.+) DJF\)$/, (m)=>`✅ ${m[1]} — ${m[2]} mois payé(s) (${m[3]} DJF)`],
+  [/^✓ (.+) marked unpaid$/, (m)=>`✓ ${m[1]} marqué non payé`],
+  [/^🏷️ (\d+) member\(s\) updated(.*)$/, (m)=>`🏷️ ${m[1]} membre(s) modifié(s)${m[2] ? m[2].replace('not allowed','non autorisé(s)') : ''}`],
+  [/^✅ (\d+) members imported(.*)$/, (m)=>`✅ ${m[1]} membres importés${m[2] ? m[2].replace('skipped','ignorés') : ''}`]
+];
+function trToast(msg) {
+  if(currentLang !== 'fr' || typeof msg !== 'string') return msg;
+  if(FR_TOAST[msg]) return FR_TOAST[msg];
+  for(const [rx, fn] of FR_TOAST_RX) { const m = msg.match(rx); if(m) return fn(m); }
+  return msg;
+}
+function applyDomFr() {
+  const fr = currentLang === 'fr';
+  document.querySelectorAll('body *').forEach(el => {
+    if(el.children.length || el.hasAttribute('data-i18n') || ['SCRIPT','STYLE','OPTION','TEXTAREA'].includes(el.tagName)) return;
+    const txt = el.textContent.trim();
+    if(el.dataset.en === undefined) {
+      if(!txt || !FR_DOM[txt]) return;
+      el.dataset.en = txt;
+    }
+    const en = el.dataset.en;
+    if(FR_DOM[en]) el.textContent = fr ? FR_DOM[en] : en;
+  });
+  document.querySelectorAll('input[placeholder]').forEach(el => {
+    if(el.dataset.enPh === undefined) { if(!FR_PLACEHOLDER[el.placeholder]) return; el.dataset.enPh = el.placeholder; }
+    el.placeholder = fr ? (FR_PLACEHOLDER[el.dataset.enPh] || el.dataset.enPh) : el.dataset.enPh;
+  });
+}
+
+/* ════════════════════════════════════════
+   MONTH / FAMILY FILTERS
+════════════════════════════════════════ */
+let memberFamilyFilter = '';
+let expandedFamilies = new Set();
+
+function setViewMonthKey(key) {
+  if(!/^\d{4}-\d{2}$/.test(key)) return;
+  currentYear = +key.slice(0,4);
+  currentMonth = +key.slice(5,7) - 1;
+  const lbl = document.getElementById('current-month');
+  if(lbl) lbl.textContent = getMonthName(currentMonth) + ' ' + currentYear;
+  document.querySelectorAll('.month-btn').forEach((btn,i) => btn.classList.toggle('active', i === currentMonth));
+  renderAll();
+}
+function setViewMonthFromSelect(key) { setViewMonthKey(key); }
+
+function populateMonthSelects() {
+  const months = getProjectMonths();
+  const cur = monthKey();
+  if(!months.find(m => m.key === cur)) months.push({ key: cur, month: currentMonth, year: currentYear });
+  months.sort((a,b) => a.key < b.key ? -1 : 1);
+  const html = months.map(m => `<option value="${m.key}" ${m.key === cur ? 'selected' : ''}>${getMonthName(m.month)} ${m.year}</option>`).join('');
+  ['member-month-filter','fam-month-select'].forEach(id => { const el = document.getElementById(id); if(el) el.innerHTML = html; });
+}
+function populateMemberFamilyFilter() {
+  const el = document.getElementById('member-family-filter');
+  if(!el) return;
+  const fams = getFamiliesData().map(f => f.name);
+  if(memberFamilyFilter && !fams.includes(memberFamilyFilter)) memberFamilyFilter = '';
+  el.innerHTML = `<option value="">${L('All families','Toutes les familles')}</option>` + fams.map(f => `<option value="${escX(f)}" ${f === memberFamilyFilter ? 'selected' : ''}>${escX(f)}</option>`).join('');
+}
+function setMemberFamilyFilter(v) { memberFamilyFilter = v; renderMembers(); }
+
+/* ════════════════════════════════════════
+   FAMILIES SCREEN
+════════════════════════════════════════ */
+function getFamiliesData() {
+  const groups = {};
+  getContributors().forEach(m => { const f = getFamilyGroup(m); (groups[f] = groups[f] || []).push(m); });
+  return Object.keys(groups).sort((a,b) => a.localeCompare(b)).map(name => ({ name, members: groups[name].sort((a,b) => a.name.localeCompare(b.name)) }));
+}
+function getArrears(m) {
+  const nowKey = monthKey(new Date().getMonth(), new Date().getFullYear());
+  const paid = new Set(getPaidKeys(m));
+  return getProjectMonths().filter(x => x.key <= nowKey && !paid.has(x.key)).map(x => x.key);
+}
+function toggleFamilyExpand(name) {
+  if(expandedFamilies.has(name)) expandedFamilies.delete(name); else expandedFamilies.add(name);
+  renderFamilies();
+}
+function renderFamilies() {
+  const list = document.getElementById('families-list');
+  if(!list) return;
+  populateMonthSelects();
+  const q = (document.getElementById('family-search')?.value || '').toLowerCase();
+  const fams = getFamiliesData().filter(f => !q || f.name.toLowerCase().includes(q) || f.members.some(m => m.name.toLowerCase().includes(q)));
+  const camp = getCamp();
+  const amt = getContributionAmount();
+  document.getElementById('families-summary').textContent = `${fams.length} ${L('families','familles')} · ${getContributors().length} ${L('members','membres')} · ${getMonthName(currentMonth)} ${currentYear}`;
+  if(!fams.length) { list.innerHTML = `<div style="padding:40px;text-align:center;color:var(--muted)">${L('No family found','Aucune famille trouvée')}</div>`; return; }
+  list.innerHTML = fams.map(f => {
+    const paid = f.members.filter(m => isContributorPaidThisMonth(m));
+    const collected = paid.reduce((s,m) => s + (getPaymentForMonth(m).amount || 0), 0);
+    const total = f.members.reduce((s,m) => s + getPaidKeys(m).reduce((t,k) => t + paidAmountForKey(m,k), 0), 0);
+    const late = f.members.reduce((s,m) => s + getArrears(m).length, 0);
+    const pct = Math.round(paid.length / f.members.length * 100);
+    const open = expandedFamilies.has(f.name);
+    const safe = escX(f.name).replace(/'/g, '&#39;');
+    return `<div class="fam-card">
+      <div class="fam-head"><div><div class="fam-name">${escX(f.name)}</div><div class="fam-sub">${f.members.length} ${L('members','membres')} · ${paid.length} ${L('paid this month','payés ce mois')}</div></div>
+        <span class="fam-pill ${pct === 100 ? 'ok' : 'no'}">${pct}%</span></div>
+      <div class="fam-bar"><div style="width:${pct}%"></div></div>
+      <div class="fam-stats"><span>${L('This month','Ce mois')}: <b>${fmt(collected)}</b> DJF</span><span>${L('Total','Total')}: <b>${fmt(total)}</b> DJF</span><span>${L('Late months','Mois en retard')}: <b style="color:${late ? 'var(--danger)' : 'var(--success)'}">${late}</b></span></div>
+      <div class="fam-actions">
+        <button class="btn-secondary" onclick="toggleFamilyExpand('${safe}')">${open ? L('Hide members','Masquer') : L('Show members','Voir les membres')}</button>
+        <button class="btn-secondary" onclick="openFamilyExport('${safe}')">📤 ${L('Export','Exporter')}</button>
+      </div>
+      ${open ? f.members.map(m => {
+        const pd = isContributorPaidThisMonth(m);
+        const ar = getArrears(m).length;
+        const lv = getExtraLevel(m);
+        return `<div class="fam-member">
+          <div class="fm-name" onclick="viewMemberProfile('${m.id}')">${escX(m.name)}${lv ? ' ' + lv.icon : ''}</div>
+          ${ar ? `<span class="fam-pill late">${ar} ${L('late','retard')}</span>` : ''}
+          <span class="fam-pill ${pd ? 'ok' : 'no'}">${pd ? '✓' : '○'}</span>
+          ${(!pd && m.phone) ? `<button class="fam-wa" title="WhatsApp" onclick="sendReminder('${m.id}')">💬</button>` : ''}
+        </div>`;
+      }).join('') : ''}
+    </div>`;
+  }).join('');
+}
+function sendReminder(id) {
+  const m = getContributors().find(x => x.id === id); if(!m || !m.phone) return;
+  const camp = getCamp();
+  const ar = getArrears(m);
+  const months = ar.length ? ar.map(keyLabel).join(', ') : keyLabel(monthKey());
+  const first = (m.name || '').split(' ')[0];
+  const msg = L(
+    `Hello ${first}, a friendly reminder for the "${camp.name}" contribution. Pending: ${months} (${fmt(getContributionAmount())} DJF/month). Thank you!`,
+    `Bonjour ${first}, petit rappel pour la cotisation « ${camp.name} ». En attente : ${months} (${fmt(getContributionAmount())} DJF/mois). Merci !`);
+  window.open('https://wa.me/' + normalizePhone(m.phone) + '?text=' + encodeURIComponent(msg), '_blank');
+}
+
+/* ════════════════════════════════════════
+   APP LINK
+════════════════════════════════════════ */
+function getAppLink() {
+  const camp = getCamp();
+  if(camp && camp.appUrl) return camp.appUrl;
+  if(/^https?:$/.test(location.protocol)) {
+    const u = new URL(location.href);
+    u.search = ''; u.hash = '';
+    u.pathname = u.pathname.replace(/index\.html$/, '');
+    return u.toString();
+  }
+  return '';
+}
+function openAppLinkModal() {
+  const link = getAppLink();
+  document.getElementById('app-link-field').value = link;
+  document.getElementById('app-link-warn').style.display = link ? 'none' : 'block';
+  const camp = getCamp();
+  document.getElementById('app-url-input').value = (camp && camp.appUrl) || '';
+  document.getElementById('app-link-modal').classList.add('open');
+}
+function saveAppUrl() {
+  const camp = getCamp(); if(!camp) return;
+  let v = document.getElementById('app-url-input').value.trim();
+  if(v && !/^https?:\/\//i.test(v)) v = 'https://' + v;
+  camp.appUrl = v;
+  saveAll();
+  document.getElementById('app-link-field').value = getAppLink();
+  document.getElementById('app-link-warn').style.display = getAppLink() ? 'none' : 'block';
+  showToast('✅ Address saved');
+}
+function appShareText() {
+  const camp = getCamp();
+  return L(`Install the "${camp ? camp.name : 'FamilyFund'}" app: `, `Installez l'application « ${camp ? camp.name : 'FamilyFund'} » : `) + getAppLink();
+}
+function copyAppLink() {
+  const link = getAppLink(); if(!link) { showToast('⚠️ No web address yet'); return; }
+  const done = () => showToast('✅ Link copied!');
+  if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link).then(done).catch(() => { document.getElementById('app-link-field').select(); document.execCommand('copy'); done(); });
+  else { document.getElementById('app-link-field').select(); document.execCommand('copy'); done(); }
+}
+function shareAppLinkWhatsApp() {
+  if(!getAppLink()) { showToast('⚠️ No web address yet'); return; }
+  window.open('https://wa.me/?text=' + encodeURIComponent(appShareText()), '_blank');
+}
+function shareAppLinkNative() {
+  const link = getAppLink(); if(!link) { showToast('⚠️ No web address yet'); return; }
+  if(navigator.share) navigator.share({ title: (getCamp() || {}).name || 'FamilyFund', text: appShareText(), url: link }).catch(() => {});
+  else copyAppLink();
+}
+
+/* ════════════════════════════════════════
+   EXPORT BY FAMILY  (PDF / Excel / Image)
+════════════════════════════════════════ */
+let fxMode = 'detail', fxFormat = 'pdf', fxSelected = new Set();
+
+function openFamilyExport(famName) {
+  const months = getProjectMonths();
+  const fams = getFamiliesData();
+  document.getElementById('fx-family').innerHTML = `<option value="">${L('All families (one page each)','Toutes les familles (une page chacune)')}</option>` +
+    fams.map(f => `<option value="${escX(f.name)}" ${f.name === famName ? 'selected' : ''}>${escX(f.name)}</option>`).join('');
+  const opts = months.map(m => `<option value="${m.key}">${getMonthName(m.month)} ${m.year}</option>`).join('');
+  document.getElementById('fx-from').innerHTML = opts;
+  document.getElementById('fx-to').innerHTML = opts;
+  document.getElementById('fx-from').value = months[0].key;
+  document.getElementById('fx-to').value = months[months.length - 1].key;
+  fxSelected = new Set(months.map(m => m.key));
+  fxRenderChips();
+  fxSetMode('detail'); fxSetFormat('pdf');
+  document.getElementById('family-export-modal').classList.add('open');
+}
+function fxRenderChips() {
+  document.getElementById('fx-chips').innerHTML = getProjectMonths().map(m =>
+    `<button class="pay-chip${fxSelected.has(m.key) ? ' selected' : ''}" onclick="fxToggle('${m.key}')">${getMonthName(m.month)} ${String(m.year).slice(2)}</button>`).join('');
+}
+function fxToggle(k) { if(fxSelected.has(k)) fxSelected.delete(k); else fxSelected.add(k); fxRenderChips(); }
+function fxRangeChanged() {
+  let a = document.getElementById('fx-from').value, b = document.getElementById('fx-to').value;
+  if(a > b) { const t = a; a = b; b = t; document.getElementById('fx-from').value = a; document.getElementById('fx-to').value = b; }
+  fxSelected = new Set(getProjectMonths().filter(m => m.key >= a && m.key <= b).map(m => m.key));
+  fxRenderChips();
+}
+function fxSelectAll(on) { fxSelected = on ? new Set(getProjectMonths().map(m => m.key)) : new Set(); fxRenderChips(); }
+function fxSetMode(m) {
+  fxMode = m;
+  document.getElementById('fx-mode-detail').classList.toggle('active', m === 'detail');
+  document.getElementById('fx-mode-recap').classList.toggle('active', m === 'recap');
+}
+function fxSetFormat(f) {
+  fxFormat = f;
+  ['pdf','excel','png'].forEach(x => document.getElementById('fx-fmt-' + x).classList.toggle('active', x === f));
+}
+function fxBuild() {
+  const keys = getProjectMonths().map(m => m.key).filter(k => fxSelected.has(k));
+  const only = document.getElementById('fx-family').value;
+  const nowKey = monthKey(new Date().getMonth(), new Date().getFullYear());
+  const amt = getContributionAmount();
+  const fams = getFamiliesData().filter(f => !only || f.name === only).map(f => {
+    const rows = f.members.map(m => {
+      const paidSet = new Set(getPaidKeys(m));
+      const cells = keys.map(k => ({ key: k, paid: paidSet.has(k), amount: paidSet.has(k) ? paidAmountForKey(m, k) : 0 }));
+      const count = cells.filter(c => c.paid).length;
+      const total = cells.reduce((s,c) => s + c.amount, 0);
+      const dueMonths = keys.filter(k => k <= nowKey && !paidSet.has(k)).length;
+      return { m, cells, count, total, dueMonths, lvl: getExtraLevel(m) };
+    });
+    const totals = keys.map((k, i) => rows.reduce((s,r) => s + r.cells[i].amount, 0));
+    return { name: f.name, rows, totals, grand: rows.reduce((s,r) => s + r.total, 0), paidCells: rows.reduce((s,r) => s + r.count, 0), cellsTotal: rows.length * keys.length };
+  });
+  return { camp: getCamp(), keys, fams, nowKey, amt, mode: fxMode };
+}
+function periodLabel(keys) { return keys.length ? (keys.length === 1 ? keyLabel(keys[0]) : keyLabel(keys[0]) + ' → ' + keyLabel(keys[keys.length - 1])) : ''; }
+function safeFileName(t) { return String(t).replace(/[^\w\-]+/g, '_').replace(/^_+|_+$/g, '') || 'file'; }
+
+function runFamilyExport() {
+  const d = fxBuild();
+  if(!d.keys.length) { showToast('⚠️ Choose at least one month'); return; }
+  if(!d.fams.length) { showToast('⚠️ Nothing to export'); return; }
+  if(fxFormat === 'pdf') fxExportPdf(d);
+  else if(fxFormat === 'excel') fxExportExcel(d);
+  else fxExportPng(d);
+}
+function fxHeaders(d) {
+  return d.mode === 'detail'
+    ? [L('Member','Membre'), ...d.keys.map(keyLabel), L('Total (DJF)','Total (DJF)')]
+    : [L('Member','Membre'), L('Phone','Téléphone'), L('Months paid','Mois payés'), L('Total paid (DJF)','Total payé (DJF)'), L('Unpaid months','Mois impayés'), L('Still due (DJF)','Reste dû (DJF)'), L('Extra','Extra')];
+}
+function fxRowValues(d, r, forExcel) {
+  if(d.mode === 'detail') return [r.m.name, ...r.cells.map(c => c.paid ? (forExcel ? (c.amount || 'Payé') : '✓') : ''), r.total];
+  return [r.m.name, r.m.phone || '', `${r.count}/${d.keys.length}`, r.total, r.dueMonths, r.dueMonths * d.amt, r.lvl ? (r.lvl.icon + (r.m.extraPaid ? ' ✓' : '')) : ''];
+}
+
+function fxExportPdf(d) {
+  const landscape = d.mode === 'detail' && d.keys.length > 6;
+  const head = fxHeaders(d);
+  let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${escX(d.camp.name)}</title><style>
+    @page{size:A4 ${landscape ? 'landscape' : 'portrait'};margin:12mm}
+    body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:0}
+    .fam{page-break-after:always;padding:4px}
+    .fam:last-child{page-break-after:auto}
+    h1{margin:0 0 2px;color:#1f2a44;font-size:22px}
+    .sub{color:#555;font-size:12px;margin-bottom:10px}
+    .stats{font-size:12px;margin-bottom:10px}.stats b{color:#1f2a44}
+    table{width:100%;border-collapse:collapse;font-size:11px}
+    th{background:#1f2a44;color:#fff;padding:6px 4px;text-align:center}
+    th:first-child,td:first-child{text-align:left}
+    td{padding:5px 4px;border-bottom:1px solid #ddd;text-align:center}
+    tr:nth-child(even) td{background:#f6f7fb}
+    td.ok{background:#dff5e8!important;color:#1a9d5b;font-weight:700}
+    tfoot td{font-weight:700;border-top:2px solid #1f2a44;background:#eef!important}
+  </style></head><body>`;
+  d.fams.forEach(f => {
+    html += `<div class="fam"><h1>${escX(f.name)}</h1><div class="sub">${escX(d.camp.name)} · ${escX(periodLabel(d.keys))}</div>
+      <div class="stats">${f.rows.length} ${L('members','membres')} · ${L('Collected','Collecté')}: <b>${fmt(f.grand)} DJF</b> · ${L('Payments','Paiements')}: <b>${f.paidCells}/${f.cellsTotal}</b></div>
+      <table><thead><tr>${head.map(h => `<th>${escX(h)}</th>`).join('')}</tr></thead><tbody>`;
+    f.rows.forEach(r => {
+      const vals = fxRowValues(d, r, false);
+      html += '<tr>' + vals.map((v, i) => `<td class="${d.mode === 'detail' && i > 0 && i <= d.keys.length && v ? 'ok' : ''}">${i === 3 && d.mode === 'recap' || (d.mode === 'detail' && i === vals.length - 1) || (d.mode === 'recap' && i === 5) ? fmt(v) : escX(v)}</td>`).join('') + '</tr>';
+    });
+    html += '</tbody><tfoot><tr>' + (d.mode === 'detail'
+      ? `<td>Total</td>${f.totals.map(t => `<td>${t ? fmt(t) : ''}</td>`).join('')}<td>${fmt(f.grand)}</td>`
+      : `<td>Total</td><td></td><td>${f.paidCells}/${f.cellsTotal}</td><td>${fmt(f.grand)}</td><td>${f.rows.reduce((s,r) => s + r.dueMonths, 0)}</td><td>${fmt(f.rows.reduce((s,r) => s + r.dueMonths * d.amt, 0))}</td><td></td>`) + '</tr></tfoot></table></div>';
+  });
+  html += '</body></html>';
+  const win = window.open('', '_blank');
+  if(!win) { showToast('⚠️ Allow pop-ups to print the PDF'); return; }
+  win.document.write(html); win.document.close(); win.focus();
+  setTimeout(() => win.print(), 600);
+  showToast('📄 PDF print dialog opened');
+  closeModal('family-export-modal');
+}
+
+function fxExportExcel(d) {
+  if(!window.XLSX) { showToast('⚠️ Excel library not loaded'); return; }
+  const wb = XLSX.utils.book_new();
+  const recap = [[L('Family','Famille'), L('Members','Membres'), L('Payments','Paiements'), L('Expected','Attendus'), L('Collected (DJF)','Collecté (DJF)')]];
+  d.fams.forEach(f => recap.push([f.name, f.rows.length, f.paidCells, f.cellsTotal, f.grand]));
+  recap.push([]); recap.push([d.camp.name, periodLabel(d.keys)]);
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(recap), L('Recap','Récap'));
+  const used = new Set([L('Recap','Récap')]);
+  d.fams.forEach(f => {
+    const head = fxHeaders(d);
+    const rows = f.rows.map(r => fxRowValues(d, r, true));
+    const foot = d.mode === 'detail' ? ['Total', ...f.totals.map(t => t || ''), f.grand]
+      : ['Total', '', `${f.paidCells}/${f.cellsTotal}`, f.grand, f.rows.reduce((s,r) => s + r.dueMonths, 0), f.rows.reduce((s,r) => s + r.dueMonths * d.amt, 0), ''];
+    const ws = XLSX.utils.aoa_to_sheet([[f.name], [d.camp.name + ' · ' + periodLabel(d.keys)], [], head, ...rows, foot]);
+    ws['!cols'] = [{ wch: 28 }, ...head.slice(1).map(() => ({ wch: 13 }))];
+    let nm = f.name.replace(/[\[\]:*?\/\\]/g, ' ').trim().slice(0, 28) || 'Famille', n = nm, c = 2;
+    while(used.has(n)) n = nm.slice(0, 25) + ' ' + (c++);
+    used.add(n);
+    XLSX.utils.book_append_sheet(wb, ws, n);
+  });
+  XLSX.writeFile(wb, safeFileName(d.camp.name) + '_' + (d.fams.length === 1 ? safeFileName(d.fams[0].name) : 'familles') + '.xlsx');
+  showToast('📊 Excel exported');
+  closeModal('family-export-modal');
+}
+
+function fxDrawCanvas(d, f) {
+  const detail = d.mode === 'detail';
+  const pad = 28, rowH = 46, nameW = 300;
+  const colW = 64, totW = 120;
+  const recapCols = [{ t: L('Months paid','Mois payés'), w: 120 }, { t: L('Total paid','Total payé'), w: 130 }, { t: L('Unpaid','Impayés'), w: 100 }, { t: L('Extra','Extra'), w: 90 }];
+  const tableW = detail ? nameW + d.keys.length * colW + totW : nameW + recapCols.reduce((s,c) => s + c.w, 0);
+  const W = Math.max(780, tableW + pad * 2);
+  const headH = 130, tHead = 58;
+  const H = headH + tHead + rowH * (f.rows.length + 1) + pad * 2 + 24;
+  const scale = H * 2 > 15000 ? 1 : 2;
+  const cv = document.createElement('canvas');
+  cv.width = W * scale; cv.height = H * scale;
+  const x = cv.getContext('2d');
+  x.scale(scale, scale);
+  x.fillStyle = '#ffffff'; x.fillRect(0, 0, W, H);
+  x.fillStyle = '#1f2a44'; x.fillRect(0, 0, W, headH);
+  const font = (w, s) => `${w} ${s}px system-ui, -apple-system, Segoe UI, Arial, sans-serif`;
+  x.textBaseline = 'alphabetic';
+  x.fillStyle = '#ffffff'; x.font = font(800, 34); x.textAlign = 'left';
+  x.fillText(f.name, pad, 56);
+  x.fillStyle = '#b9c3e0'; x.font = font(500, 17);
+  x.fillText(d.camp.name + ' · ' + periodLabel(d.keys), pad, 86);
+  x.fillStyle = '#ffffff'; x.font = font(600, 16);
+  x.fillText(`${f.rows.length} ${L('members','membres')}  ·  ${L('Collected','Collecté')}: ${fmt(f.grand)} DJF  ·  ${L('Payments','Paiements')}: ${f.paidCells}/${f.cellsTotal}`, pad, 114);
+  const fit = (t, w) => { t = String(t); while(x.measureText(t).width > w && t.length > 1) t = t.slice(0, -2) + '…'; return t; };
+  let y = headH + pad / 2;
+  // table header
+  x.fillStyle = '#e8ecf7'; x.fillRect(pad, y, tableW, tHead);
+  x.fillStyle = '#1f2a44'; x.font = font(700, 15); x.textAlign = 'left';
+  x.fillText(L('Member','Membre'), pad + 12, y + 35);
+  x.textAlign = 'center';
+  if(detail) {
+    d.keys.forEach((k, i) => {
+      const cx = pad + nameW + i * colW + colW / 2;
+      x.font = font(700, 14); x.fillText(getMonthName(+k.slice(5,7) - 1), cx, y + 24);
+      x.font = font(500, 12); x.fillStyle = '#5b6685'; x.fillText(k.slice(0,4), cx, y + 42); x.fillStyle = '#1f2a44';
+    });
+    x.font = font(700, 14); x.fillText('Total', pad + nameW + d.keys.length * colW + totW / 2, y + 35);
+  } else {
+    let cx = pad + nameW;
+    recapCols.forEach(c => { x.font = font(700, 14); x.fillText(c.t, cx + c.w / 2, y + 35); cx += c.w; });
+  }
+  y += tHead;
+  f.rows.forEach((r, ri) => {
+    if(ri % 2) { x.fillStyle = '#f6f7fb'; x.fillRect(pad, y, tableW, rowH); }
+    x.fillStyle = '#111'; x.font = font(600, 16); x.textAlign = 'left';
+    x.fillText(fit(r.m.name + (r.lvl ? ' ' + r.lvl.icon : ''), nameW - 20), pad + 12, y + 29);
+    x.textAlign = 'center';
+    if(detail) {
+      r.cells.forEach((c, i) => {
+        const cx = pad + nameW + i * colW;
+        if(c.paid) { x.fillStyle = '#dff5e8'; x.fillRect(cx + 4, y + 5, colW - 8, rowH - 10); x.fillStyle = '#1a9d5b'; x.font = font(800, 20); x.fillText('✓', cx + colW / 2, y + 31); }
+        else if(c.key <= d.nowKey) { x.fillStyle = '#fdeaea'; x.fillRect(cx + 4, y + 5, colW - 8, rowH - 10); x.fillStyle = '#d64545'; x.font = font(700, 16); x.fillText('✗', cx + colW / 2, y + 30); }
+        else { x.fillStyle = '#b0b6c7'; x.font = font(500, 16); x.fillText('–', cx + colW / 2, y + 30); }
+      });
+      x.fillStyle = '#111'; x.font = font(700, 15);
+      x.fillText(fmt(r.total), pad + nameW + d.keys.length * colW + totW / 2, y + 29);
+    } else {
+      const vals = [`${r.count}/${d.keys.length}`, fmt(r.total), String(r.dueMonths), r.lvl ? r.lvl.icon + (r.m.extraPaid ? '✓' : '') : '–'];
+      let cx = pad + nameW;
+      recapCols.forEach((c, i) => { x.fillStyle = (i === 2 && r.dueMonths) ? '#d64545' : '#111'; x.font = font(600, 15); x.fillText(vals[i], cx + c.w / 2, y + 29); cx += c.w; });
+    }
+    y += rowH;
+  });
+  // totals row
+  x.fillStyle = '#e8ecf7'; x.fillRect(pad, y, tableW, rowH);
+  x.fillStyle = '#1f2a44'; x.font = font(800, 16); x.textAlign = 'left'; x.fillText('Total', pad + 12, y + 29);
+  x.textAlign = 'center';
+  if(detail) {
+    f.totals.forEach((t, i) => { if(t) { x.font = font(700, 12); x.fillText(fmt(t), pad + nameW + i * colW + colW / 2, y + 28); } });
+    x.font = font(800, 16); x.fillText(fmt(f.grand), pad + nameW + d.keys.length * colW + totW / 2, y + 29);
+  } else {
+    const vals = [`${f.paidCells}/${f.cellsTotal}`, fmt(f.grand), String(f.rows.reduce((s,r) => s + r.dueMonths, 0)), ''];
+    let cx = pad + nameW;
+    recapCols.forEach((c, i) => { x.font = font(800, 15); x.fillText(vals[i], cx + c.w / 2, y + 29); cx += c.w; });
+  }
+  y += rowH;
+  x.fillStyle = '#8a92aa'; x.font = font(500, 12); x.textAlign = 'right';
+  x.fillText(new Date().toLocaleDateString(currentLang === 'fr' ? 'fr-FR' : 'en-GB'), W - pad, y + 24);
+  return cv;
+}
+function canvasBlob(cv) { return new Promise(res => cv.toBlob(res, 'image/png')); }
+async function fxExportPng(d) {
+  showToast(L('Preparing images…', 'Préparation des images…'));
+  const files = [];
+  for(const f of d.fams) {
+    const blob = await canvasBlob(fxDrawCanvas(d, f));
+    if(blob) files.push({ name: safeFileName(f.name) + '_' + safeFileName(d.keys[0]) + (d.keys.length > 1 ? '_' + safeFileName(d.keys[d.keys.length - 1]) : '') + '.png', blob });
+  }
+  if(!files.length) { showToast('⚠️ Nothing to export'); return; }
+  if(files.length === 1) downloadBlob(files[0].blob, files[0].name);
+  else if(window.JSZip) {
+    const zip = new JSZip();
+    files.forEach(fl => zip.file(fl.name, fl.blob));
+    const z = await zip.generateAsync({ type: 'blob' });
+    downloadBlob(z, safeFileName(d.camp.name) + '_familles.zip');
+  } else {
+    for(const fl of files) { downloadBlob(fl.blob, fl.name); await new Promise(r => setTimeout(r, 500)); }
+  }
+  showToast('🖼️ Images exported');
+  closeModal('family-export-modal');
+}
+
 function isContributorPaidThisMonth(contributor) {
   return getPaymentForMonth(contributor, currentMonth, currentYear).status === 'paid';
 }
 function fmtDate(d) {
   if (!d) return '';
   const dt = new Date(d + 'T00:00:00');
-  return dt.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  return dt.toLocaleDateString(currentLang === 'fr' ? 'fr-FR' : 'en-GB',{day:'2-digit',month:'short',year:'numeric'});
 }
-function getMonthName(m) { return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m]; }
+function getMonthName(m) { return (currentLang === 'fr' ? ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'] : ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'])[m]; }
 function getCashierTodayCount() {
   const cashier = getCashiers().find(c => c.id === activeCashierId);
   if(!cashier) return 0;
@@ -2226,6 +3190,7 @@ function navigate(screen) {
 
   if(screen === 'dashboard') renderDashboard();
   if(screen === 'members') renderMembers();
+  if(screen === 'families') renderFamilies();
   if(screen === 'cashier') { applyCashierSession(); renderCashierView(); }
   if(screen === 'public') renderPublicView();
   if(screen === 'reports') renderReports();
@@ -2611,7 +3576,7 @@ function bulkDeleteSelected() {
     if(!cashier) { showToast('⚠️ Not signed in'); return; }
     const nonOwned = [...bulkSelected].filter(id => {
       const m = c.contributors.find(x => x.id === id);
-      return m && m.cashier && m.cashier !== cashier.name;
+      return m && m.cashier && m.cashier !== cashier.name && !getCashierPerms().canEditAll;
     });
     if(nonOwned.length > 0) {
       showToast('⚠️ You can only delete your own members'); return;
@@ -2647,18 +3612,23 @@ function bulkDeleteSelected() {
 
 function renderMembers() {
   const search = document.getElementById('member-search')?.value?.toLowerCase() || '';
-  const contributors = getContributors();
+  populateMonthSelects();
+  populateMemberFamilyFilter();
+  const allContributors = getContributors();
+  const contributors = memberFamilyFilter ? allContributors.filter(c => getFamilyGroup(c) === memberFamilyFilter) : allContributors;
+  const nowKeyM = monthKey(new Date().getMonth(), new Date().getFullYear());
+  const isAdvanceM = c => getPaidKeys(c).some(k => k > nowKeyM);
   let filtered = contributors.filter(c => {
     const matchesSearch = c.name.toLowerCase().includes(search);
     const paidMonth = isContributorPaidThisMonth(c);
-    const matchesFilter = memberFilter === 'all' || (memberFilter === 'paid' ? paidMonth : !paidMonth);
+    const matchesFilter = memberFilter === 'all' || (memberFilter === 'paid' ? paidMonth : memberFilter === 'advance' ? isAdvanceM(c) : !paidMonth);
     return matchesSearch && matchesFilter;
   });
 
   document.getElementById('filter-all-count').textContent = contributors.length;
   document.getElementById('filter-paid-count').textContent = contributors.filter(c=>isContributorPaidThisMonth(c)).length;
   document.getElementById('filter-unpaid-count').textContent = contributors.filter(c=>!isContributorPaidThisMonth(c)).length;
-  document.getElementById('filter-advance-count').textContent = contributors.filter(c=>c.status==='advance').length;
+  document.getElementById('filter-advance-count').textContent = contributors.filter(isAdvanceM).length;
 
   // Search detail card — show when search matches exactly one or the query is specific enough
   const detailEl = document.getElementById('member-search-detail');
@@ -2737,7 +3707,7 @@ function renderMembers() {
       <input type="checkbox" class="bulk-check" data-id="${c.id}" onclick="event.stopPropagation();toggleBulkSelectById('${c.id}',this.checked)">
       <div class="member-initial" style="background:linear-gradient(135deg,#4F6EF7,#8B5CF6)">${initials(c.name)}</div>
       <div class="member-info">
-        <div class="member-name">${c.name}</div>
+        <div class="member-name">${c.name}${extraIconHtml(c)}</div>
         <div class="member-sub">${c.cashier||'Unassigned'} · ${mp.date ? fmtDate(mp.date) : '—'}</div>
       </div>
       <div class="member-right" style="display:flex;align-items:center;gap:8px">
@@ -2809,6 +3779,7 @@ function quickMarkPaid(id) {
 
 function viewMemberProfile(id) {
   selectedMemberId = id;
+  profileYear = currentYear;
   navigate('profile');
   renderProfile();
 }
@@ -2832,7 +3803,7 @@ function renderProfile() {
   document.getElementById('profile-content').innerHTML = `
     <div class="profile-header">
       <div class="profile-avatar-lg" style="background:linear-gradient(135deg,#22C97A,#4F6EF7)">${initials(c.name)}</div>
-      <div class="profile-name">${c.name}</div>
+      <div class="profile-name">${c.name}${extraIconHtml(c)}</div>
       <div class="profile-phone">📞 ${c.phone || 'N/A'}</div>
       <div class="profile-badges">
         <span class="badge ${isPaidThisMonth ? 'badge-success' : 'badge-danger'}">${isPaidThisMonth ? '✓ Paid' : '⏳ Unpaid'}</span>
@@ -2852,33 +3823,16 @@ function renderProfile() {
         <div class="legend-item"><div class="legend-dot" style="background:var(--gold)"></div><span data-i18n="leg_pending">Pending</span></div>
         <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div><span data-i18n="leg_advance">Advance</span></div>
       </div>
-      <div class="heatmap-year">
-        <div class="heatmap-year-title">${currentYear}</div>
-        <div class="heatmap-grid">
-          ${Array.from({length:12}, (_, i) => {
-            const month = i;
-            const mp = getPaymentForMonth(c, month, currentYear);
-            const isPaid = mp.status === 'paid';
-            const isFuture = month > new Date().getMonth() && currentYear >= new Date().getFullYear();
-            const state = isPaid ? 'paid' : isFuture ? 'future' : 'missed';
-            return `<div class="heatmap-cell ${state}">
-              <div class="heatmap-month">${getMonthName(month)}</div>
-              <div class="heatmap-status">${isPaid ? '✅' : isFuture ? '·' : '✗'}</div>
-              <div class="heatmap-date">${isPaid ? fmtDate(mp.date) : ''}</div>
-            </div>`;
-          }).join('')}
-        </div>
-      </div>
+      ${buildHeatmapHtml(c)}
+      ${buildExtraSectionHtml(c)}
       <div class="sec-header" style="margin-top:4px"><div class="sec-title" data-i18n="sec_notes">Notes</div></div>
       <div class="profile-notes">
         <textarea placeholder="Add a note about this member…" id="member-notes">${c.notes || ''}</textarea>
         <button class="btn-secondary" style="margin-top:8px;" onclick="saveMemberNotes()">Save Notes</button>
       </div>
       <div style="margin-top:16px;display:flex;flex-direction:column;gap:8px">
-        ${isPaidThisMonth
-          ? `<button class="btn-secondary" onclick="quickMarkPaid('${c.id}')">✕ Mark Unpaid for ${getMonthName(currentMonth)}</button>`
-          : `<button class="btn-primary" onclick="openPayModalForProfile()">💰 <span data-i18n="record_payment">Record Payment</span></button>`
-        }
+        <button class="btn-primary" onclick="openPayModalForProfile()">💰 <span data-i18n="record_payment">Record Payment</span></button>
+        ${isPaidThisMonth ? `<button class="btn-secondary" onclick="quickMarkPaid('${c.id}')">✕ Mark Unpaid for ${getMonthName(currentMonth)}</button>` : ''}
         <div id="profile-promote-section"></div>
       </div>
     </div>
@@ -2919,11 +3873,46 @@ function saveMemberNotes() {
   showToast('📝 Notes saved');
 }
 
-function openPayModalForProfile() {
-  document.getElementById('pay-modal-member-name').textContent = getContributors().find(c => c.id === selectedMemberId)?.name || 'Member';
+function openPayModalForProfile(preKey) {
+  const m = getContributors().find(c => c.id === selectedMemberId);
+  document.getElementById('pay-modal-member-name').textContent = m?.name || 'Member';
   document.getElementById('pay-modal-amount').value = getContributionAmount();
+  document.getElementById('pay-modal-date').value = today();
+  renderPayChips(m, preKey);
+  updatePayTotal();
   document.getElementById('pay-modal').classList.add('open');
   document.getElementById('pay-modal').dataset.memberId = selectedMemberId;
+}
+
+function renderPayChips(member, preKey) {
+  const wrap = document.getElementById('pay-month-chips');
+  if(!wrap || !member) return;
+  const camp = getCamp();
+  const months = getProjectMonths();
+  const nowKey = monthKey(new Date().getMonth(), new Date().getFullYear());
+  const noAdvance = camp && camp.allowAdvance === false;
+  let pre = preKey;
+  if(!pre) {
+    const cur = monthKey();
+    const curOk = months.find(x => x.key === cur && getPaymentForMonth(member, x.month, x.year).status !== 'paid');
+    pre = curOk ? cur : (months.find(x => getPaymentForMonth(member, x.month, x.year).status !== 'paid') || {}).key;
+  }
+  wrap.innerHTML = months.map(({key, month, year}) => {
+    const paid = getPaymentForMonth(member, month, year).status === 'paid';
+    const blocked = !paid && noAdvance && key > nowKey;
+    const sel = !paid && !blocked && key === pre;
+    return `<button class="pay-chip${sel ? ' selected' : ''}${paid ? ' paid-done' : ''}" data-key="${key}" ${(paid || blocked) ? 'disabled' : ''} onclick="toggleMonthChip(this)">${paid ? '✓ ' : ''}${getMonthName(month)} ${String(year).slice(2)}</button>`;
+  }).join('');
+  const sel = wrap.querySelector('.pay-chip.selected');
+  if(sel) setTimeout(() => sel.scrollIntoView({block: 'nearest'}), 50);
+}
+
+function updatePayTotal() {
+  const el = document.getElementById('pay-modal-total');
+  if(!el) return;
+  const n = document.querySelectorAll('#pay-month-chips .pay-chip.selected').length;
+  const amt = parseFloat(document.getElementById('pay-modal-amount').value) || 0;
+  el.textContent = n ? `${n} month${n > 1 ? 's' : ''} × ${fmt(amt)} = ${fmt(n * amt)} DJF` : 'No month selected';
 }
 
 function confirmRecordPayment() {
@@ -2934,18 +3923,22 @@ function confirmRecordPayment() {
   if(!contributor) return;
   const amount = parseFloat(document.getElementById('pay-modal-amount').value) || 0;
   if(amount <= 0) { showToast('⚠️ Enter valid amount'); return; }
-  contributor.status = 'paid';
-  contributor.amount = amount;
+  const keys = [...document.querySelectorAll('#pay-month-chips .pay-chip.selected')].map(b => b.dataset.key);
+  if(!keys.length) { showToast('⚠️ Select at least one month'); return; }
+  const date = document.getElementById('pay-modal-date').value || today();
   contributor.method = payMethod;
   contributor.waafiNumber = document.getElementById('pay-waafi-number').value || '';
-  contributor.date = today();
-  // Also write into per-month payments object so heatmap & history work
   if(!contributor.payments) contributor.payments = {};
-  contributor.payments[monthKey()] = { status: 'paid', amount, date: today(), method: payMethod };
+  keys.forEach(k => { contributor.payments[k] = { status: 'paid', amount, date, method: payMethod }; });
+  if(keys.includes(monthKey())) {
+    contributor.status = 'paid';
+    contributor.amount = amount;
+    contributor.date = date;
+  }
   saveAll();
   closeModal('pay-modal');
   renderProfile();
-  showToast(`✅ ${contributor.name} — paid ${fmt(amount)} DJF`);
+  showToast(`✅ ${contributor.name} — ${keys.length} month${keys.length > 1 ? 's' : ''} paid (${fmt(amount * keys.length)} DJF)`);
 }
 
 function setPayMethod(method) {
@@ -2956,7 +3949,9 @@ function setPayMethod(method) {
 }
 
 function toggleMonthChip(el) {
+  if(el.disabled) return;
   el.classList.toggle('selected');
+  updatePayTotal();
 }
 
 /* ════════════════════════════════════════
@@ -3044,7 +4039,7 @@ function cashierBulkDeleteSelected() {
   if(!isAdminActingAsCashier) {
     const nonOwned = [...cashierBulkSelected].filter(id => {
       const m = c.contributors.find(x => x.id === id);
-      return m && m.cashier && cashier && m.cashier !== cashier.name;
+      return m && m.cashier && cashier && m.cashier !== cashier.name && !getCashierPerms().canEditAll;
     });
     if(nonOwned.length > 0) { showToast('⚠️ You can only delete your own members'); return; }
   }
@@ -3080,7 +4075,7 @@ function renderCashierView() {
     return;
   }
   const perms = getCashierPerms();
-  const canSeeAll = perms.seeAll || isAdminActingAsCashier;
+  const canSeeAll = perms.seeAll || perms.canEditAll || isAdminActingAsCashier;
   const search = document.getElementById('cashier-search')?.value?.toLowerCase() || '';
   const contributors = getContributors();
   // Filter: if seeAll, show all; otherwise only assigned
@@ -3124,7 +4119,7 @@ function renderCashierView() {
       <input type="checkbox" class="bulk-check cashier-bulk-check" data-id="${c.id}" onclick="event.stopPropagation();cashierToggleBulkById('${c.id}',this.checked)">
       <div class="member-initial" style="background:linear-gradient(135deg,#4F6EF7,#8B5CF6)">${initials(c.name)}</div>
       <div class="member-info">
-        <div class="member-name">${c.name}</div>
+        <div class="member-name">${c.name}${extraIconHtml(c)}</div>
         <div class="member-sub">${fmt(paidNow ? mp.amount : getContributionAmount())} DJF · ${paidNow ? 'Paid this month' : 'Pending'}</div>
       </div>
       <div class="member-right">
@@ -3479,13 +4474,13 @@ function renderReports() {
 ════════════════════════════════════════ */
 function getCashierPerms() {
   const c = getCamp();
-  return (c && c.cashierPerms) ? c.cashierPerms : { seeAll: false, seeReports: false };
+  return (c && c.cashierPerms) ? c.cashierPerms : { seeAll: false, seeReports: false, canEditAll: false };
 }
 
 function toggleCashierPerm(key) {
   const c = getCamp();
   if(!c) return;
-  if(!c.cashierPerms) c.cashierPerms = { seeAll: false, seeReports: false };
+  if(!c.cashierPerms) c.cashierPerms = { seeAll: false, seeReports: false, canEditAll: false };
   c.cashierPerms[key] = !c.cashierPerms[key];
   saveAll();
   // Immediately update cashier nav Reports visibility
@@ -3507,9 +4502,16 @@ function renderSettings() {
     document.getElementById('settings-admin-pin-display').textContent = '••••';
   }
 
-  // Always show security banner as reminder
+  // Security banner: only until the admin has changed the PIN once
   const banner = document.getElementById('security-warning-banner');
-  if(banner) banner.style.display = 'flex';
+  if(banner) banner.style.display = (camp.admin && camp.admin.pinChanged) ? 'none' : 'flex';
+
+  // Project months + extra collection + edit permission display
+  const pmEl = document.getElementById('settings-project-months');
+  if(pmEl) pmEl.textContent = camp.startMonth ? (keyLabel(camp.startMonth) + (camp.endMonth ? ' → ' + keyLabel(camp.endMonth) : ' → open')) : 'Not set';
+  const exEl = document.getElementById('settings-extra-name');
+  if(exEl) exEl.textContent = getExtra().name;
+  document.getElementById('perm-edit-all-toggle')?.classList.toggle('on', !!getCashierPerms().canEditAll);
 
   document.getElementById('settings-recyclebin-count').textContent = ((camp.recycleBin)||[]).length;
   renderNameRegistrySettings();
@@ -3593,7 +4595,7 @@ function editAdminPin() {
   const camp = getCamp();
   if(!camp || !camp.admin) return;
   const v = prompt('Enter new PIN (min 4 digits):');
-  if(v && v.trim().length >= 4) { camp.admin.pin = v.trim(); saveAll(); showToast('🔒 PIN updated'); }
+  if(v && v.trim().length >= 4) { camp.admin.pin = v.trim(); camp.admin.pinChanged = true; saveAll(); showToast('🔒 PIN updated'); }
   else if(v) { showToast('⚠️ PIN must be at least 4 digits'); }
 }
 
@@ -3725,8 +4727,7 @@ function openEditMemberModal() {
   if(!contributor) return;
 
   if(currentRole === 'cashier') {
-    const me = getCurrentCashier();
-    if(!me || contributor.cashier !== me.name) { showToast('⚠️ You can only edit your own members'); return; }
+    if(!canEditMember(contributor)) { showToast('⚠️ You can only edit your own members'); return; }
   }
 
   document.getElementById('edit-member-id').value = contributor.id;
@@ -3751,7 +4752,7 @@ function openEditMemberModal() {
     } else {
       // Cashier can delete their own members
       const me = getCurrentCashier();
-      const isMyMember = me && (!contributor.cashier || contributor.cashier === me.name);
+      const isMyMember = getCashierPerms().canEditAll || (me && (!contributor.cashier || contributor.cashier === me.name));
       delBtn.style.display = isMyMember ? 'block' : 'none';
     }
   }
@@ -3811,7 +4812,7 @@ function deleteMemberFromEdit() {
     // Cashiers can delete their own assigned members
     const cashier = getCashiers().find(ca => ca.id === activeCashierId);
     if(!cashier) { showToast('⚠️ Not signed in'); return; }
-    if(member.cashier && member.cashier !== cashier.name) {
+    if(member.cashier && member.cashier !== cashier.name && !getCashierPerms().canEditAll) {
       showToast('⚠️ You can only delete your own members'); return;
     }
     deletedByName = cashier.name;
@@ -4293,7 +5294,7 @@ function closeModal(id, e) {
 let toastTimer;
 function showToast(msg) {
   const t = document.getElementById('toast');
-  t.textContent = msg;
+  t.textContent = trToast(msg);
   t.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(()=>t.classList.remove('show'), 2400);
@@ -4328,7 +5329,7 @@ const TRANSLATIONS = {
     sat_total:'Target', sat_collected:'Collected', sat_outstanding:'Outstanding',
     sec_alerts:'Alerts', sec_cashiers:'Cashier Performance', sec_recent:'Recent Payments',
     see_all:'See all',
-    nav_dash:'Dashboard', nav_members:'Members', nav_reports:'Reports',
+    nav_dash:'Dashboard', nav_families:'Families', f_all:'All', f_paid:'Paid', f_unpaid:'Unpaid', f_advance:'Advance', nav_members:'Members', nav_reports:'Reports',
     nav_settings:'Settings', nav_my_members:'My Members', nav_today:'Today', nav_logout:'Log Out',
     nav_reports:'Reports',
     profile_title:'Member Profile',
@@ -4349,7 +5350,7 @@ const TRANSLATIONS = {
     cashier_promote_hint:'Promote contributors to cashier from their profile.',
     set_import_export:'Import / Export',
     export_share:'Export & Share', export_formats:'Excel · PDF · Text · PNG',
-    import_excel:'Import from Excel', import_desc:'Upload .xlsx file',
+    import_excel:'Import from Excel', import_desc:'Excel · CSV · JSON',
     set_app:'App', set_language:'Language', set_theme:'Theme',
     set_audit:'Audit Log', audit_soon:'Audit log will be available soon.',
     set_recyclebin:'Recycle Bin',
@@ -4367,7 +5368,7 @@ const TRANSLATIONS = {
     share_format:'Format', export_btn:'Export',
     import_title:'Import from Excel',
     import_hint:'Upload an .xlsx or .csv file. We\'ll import whatever columns exist — at minimum a name column.',
-    import_drop:'Tap to choose .xlsx or .csv file',
+    import_drop:'Tap to choose an Excel, CSV or JSON file',
     import_preview:'Preview',
     import_skip_dupes:'Skip duplicates (by name)',
     import_btn:'Import Members',
@@ -4388,7 +5389,7 @@ const TRANSLATIONS = {
     sat_total:'Objectif', sat_collected:'Collecté', sat_outstanding:'Restant',
     sec_alerts:'Alertes', sec_cashiers:'Performance des caissiers', sec_recent:'Paiements récents',
     see_all:'Voir tout',
-    nav_dash:'Tableau', nav_members:'Membres', nav_reports:'Rapports',
+    nav_dash:'Tableau', nav_families:'Familles', f_all:'Tous', f_paid:'Payés', f_unpaid:'Impayés', f_advance:'Avance', nav_members:'Membres', nav_reports:'Rapports',
     nav_settings:'Paramètres', nav_my_members:'Mes membres', nav_today:'Aujourd\'hui', nav_logout:'Déconnexion',
     profile_title:'Profil du membre',
     stat_paid:'Total payé', stat_outstanding:'Restant', stat_ontime:'À temps',
@@ -4452,11 +5453,14 @@ function applyLang() {
   document.getElementById('lang-'+currentLang)?.classList.add('active');
   document.getElementById('login-lang-'+currentLang)?.classList.add('active');
   document.getElementById('settings-lang-'+currentLang)?.classList.add('active');
+  try { applyDomFr(); } catch(e) { console.warn(e); }
 }
 
 function setLang(lang) {
   currentLang = lang;
+  try { localStorage.setItem('fc_lang', lang); } catch(e) {}
   applyLang();
+  try { renderAll(); } catch(e) {}
 }
 
 /* ════════════════════════════════════════
@@ -4672,17 +5676,11 @@ function doExport() {
     closeModal('share-modal');
 
   } else if(selectedExportFormat === 'excel') {
-    // Simple CSV export
-    let csv = 'Name,Status,Amount (DJF),Cashier,Phone,Date\n';
-    contributors.forEach(m => {
-      csv += `"${m.name}","${m.status}","${m.amount}","${m.cashier||''}","${m.phone||''}","${m.date||''}"\n`;
-    });
-    const blob = new Blob([csv], {type:'text/csv'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url;
-    a.download = 'SahalGuedid_' + getMonthName(currentMonth) + currentYear + '.csv';
-    a.click(); URL.revokeObjectURL(url);
-    showToast('📊 Excel (CSV) exported!');
+    exportExcelFile();
+    closeModal('share-modal');
+
+  } else if(selectedExportFormat === 'json') {
+    exportJsonBackup();
     closeModal('share-modal');
 
   } else if(selectedExportFormat === 'pdf') {
@@ -4709,7 +5707,7 @@ function doExport() {
     // Member table
     html += `<h2>Members</h2><table><thead><tr><th>Name</th><th>Status</th><th>Amount</th><th>Cashier</th></tr></thead><tbody>`;
     contributors.forEach(m => {
-      html += `<tr><td>${m.name}</td><td>${m.status}</td><td>${m.status==='paid'?fmt(m.amount)+' DJF':'—'}</td><td>${m.cashier||'—'}</td></tr>`;
+      html += `<tr><td>${m.name}</td><td>${isContributorPaidThisMonth(m)?'paid':'unpaid'}</td><td>${isContributorPaidThisMonth(m)?fmt(getPaymentForMonth(m).amount)+' DJF':'—'}</td><td>${m.cashier||'—'}</td></tr>`;
     });
     html += `</tbody></table></body></html>`;
     const win = window.open('','_blank');
@@ -4743,64 +5741,109 @@ function handleImportFile(input) {
   const file = input.files[0];
   if(!file) return;
   const ext = file.name.split('.').pop().toLowerCase();
+  const name = file.name;
 
-  if(ext === 'csv') {
+  if(ext === 'json') {
     const reader = new FileReader();
-    reader.onload = e => parseCSVImport(e.target.result);
+    reader.onload = e => {
+      try { parseJsonImport(JSON.parse(e.target.result), name); }
+      catch(err) { showToast('⚠️ Invalid JSON file'); }
+    };
     reader.readAsText(file);
-  } else if(ext === 'xlsx' || ext === 'xls') {
-    // Use SheetJS if available, otherwise fallback to CSV
-    if(window.XLSX) {
-      const reader = new FileReader();
-      reader.onload = e => {
+  } else if(['xlsx','xls','xlsm','xlsb','ods'].includes(ext)) {
+    if(!window.XLSX) { showToast('⚠️ Excel library not loaded — use a .csv file'); return; }
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
         const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
         const ws = wb.Sheets[wb.SheetNames[0]];
-        const data = XLSX.utils.sheet_to_json(ws, {header:1});
-        parseRowsImport(data);
-      };
-      reader.readAsArrayBuffer(file);
-    } else {
-      showToast('⚠️ xlsx not loaded — please use a .csv file');
-    }
+        parseRowsImport(XLSX.utils.sheet_to_json(ws, {header:1, defval:''}), name);
+      } catch(err) { showToast('⚠️ Could not read this spreadsheet'); }
+    };
+    reader.readAsArrayBuffer(file);
+  } else {
+    // csv / tsv / txt / unknown → read as text
+    const reader = new FileReader();
+    reader.onload = e => {
+      const text = String(e.target.result || '');
+      const trimmed = text.trim();
+      if(trimmed.startsWith('{') || trimmed.startsWith('[')) {
+        try { parseJsonImport(JSON.parse(trimmed), name); return; } catch(err) {}
+      }
+      if(window.XLSX) {
+        try {
+          const wb = XLSX.read(text, {type:'string'});
+          parseRowsImport(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1, defval:''}), name);
+          return;
+        } catch(err) {}
+      }
+      parseCSVImport(text, name);
+    };
+    reader.readAsText(file);
   }
 }
 
-function parseCSVImport(text) {
-  const lines = text.trim().split('\n').map(l => l.split(',').map(v => v.replace(/^"|"$/g,'').trim()));
-  parseRowsImport(lines);
+function parseCSVImport(text, filename) {
+  const first = text.split('\n')[0] || '';
+  const delim = first.includes('\t') ? '\t' : (first.split(';').length > first.split(',').length ? ';' : ',');
+  const lines = text.trim().split('\n').map(l => l.split(delim).map(v => v.replace(/^"|"$/g,'').trim()));
+  parseRowsImport(lines, filename);
 }
 
-function parseRowsImport(rows) {
-  if(rows.length < 2) { showToast('⚠️ File appears empty'); return; }
-  const headers = rows[0].map(h => (h||'').toLowerCase().trim());
-
-  // Find columns — flexible mapping
-  const nameIdx = headers.findIndex(h => h.includes('name') || h.includes('nom') || h === 'prénom');
-  const phoneIdx = headers.findIndex(h => h.includes('phone') || h.includes('tel') || h.includes('téléphone'));
-  const statusIdx = headers.findIndex(h => h.includes('status') || h.includes('statut'));
-  const cashierIdx = headers.findIndex(h => h.includes('cashier') || h.includes('caissier'));
-
-  if(nameIdx === -1) { showToast('⚠️ No name column found'); return; }
-
-  importRows = rows.slice(1).filter(r => r[nameIdx]?.trim()).map(r => ({
-    name: capitalize(r[nameIdx].trim()),
-    phone: phoneIdx >= 0 ? (r[phoneIdx]||'').trim() : '',
-    status: statusIdx >= 0 ? (r[statusIdx]||'unpaid').toLowerCase().trim() : 'unpaid',
-    cashier: cashierIdx >= 0 ? (r[cashierIdx]||'').trim() : '',
-  }));
-
-  // Show preview
+function showImportPreview(filename) {
   const thead = document.querySelector('#import-preview-table thead');
   const tbody = document.querySelector('#import-preview-table tbody');
-  thead.innerHTML = `<tr><th>Name</th><th>Phone</th><th>Status</th><th>Cashier</th></tr>`;
-  tbody.innerHTML = importRows.slice(0,8).map(r =>
-    `<tr><td>${r.name}</td><td>${r.phone||'—'}</td><td>${r.status}</td><td>${r.cashier||'—'}</td></tr>`
-  ).join('');
-
+  thead.innerHTML = `<tr><th>Name</th><th>Phone</th><th>Months</th><th>Extra</th><th>Cashier</th></tr>`;
+  tbody.innerHTML = importRows.slice(0,8).map(r => {
+    const nMonths = r.payments ? Object.keys(r.payments).length : (r.months || []).length;
+    const lvl = getExtra().levels.find(l => l.id === r.extraLevel);
+    return `<tr><td>${escX(r.name)}</td><td>${escX(r.phone) || '—'}</td><td>${nMonths || '—'}</td><td>${lvl ? lvl.icon : '—'}</td><td>${escX(r.cashier) || '—'}</td></tr>`;
+  }).join('');
   document.getElementById('import-count-label').textContent = importRows.length + ' rows';
   document.getElementById('import-preview-wrap').style.display = 'block';
   document.getElementById('import-actions').style.display = 'block';
-  document.getElementById('import-drop').querySelector('.import-drop-text').textContent = file ? file.name : 'File loaded';
+  document.getElementById('import-drop').querySelector('.import-drop-text').textContent = filename || 'File loaded';
+}
+
+function parseRowsImport(rows, filename) {
+  rows = (rows || []).filter(r => r && r.some(v => String(v == null ? '' : v).trim() !== ''));
+  if(rows.length < 2) { showToast('⚠️ File appears empty'); return; }
+  const headers = rows[0].map(h => String(h == null ? '' : h).toLowerCase().trim());
+  const find = fn => headers.findIndex(fn);
+
+  const nameIdx = find(h => h.includes('name') || h.includes('nom') || h === 'prénom');
+  const phoneIdx = find(h => h.includes('phone') || h.includes('tel') || h.includes('téléphone'));
+  const statusIdx = find(h => h === 'status' || h === 'statut');
+  const cashierIdx = find(h => h.includes('cashier') || h.includes('caissier'));
+  const monthsIdx = find(h => (h.includes('month') || h.includes('mois')) && !h.includes('count') && !h.includes('nb'));
+  const extraIdx = find(h => h.includes('extra') && h.includes('level'));
+  const extraPaidIdx = find(h => h.includes('extra') && h.includes('paid'));
+
+  if(nameIdx === -1) { showToast('⚠️ No name column found'); return; }
+  const cell = (r, i) => i >= 0 ? String(r[i] == null ? '' : r[i]).trim() : '';
+
+  importRows = rows.slice(1).filter(r => cell(r, nameIdx)).map(r => ({
+    name: cell(r, nameIdx).split(/\s+/).map(capitalize).join(' '),
+    phone: cell(r, phoneIdx),
+    status: (cell(r, statusIdx) || 'unpaid').toLowerCase(),
+    cashier: cell(r, cashierIdx),
+    months: monthsIdx >= 0 ? parseMonthTokens(cell(r, monthsIdx)) : [],
+    extraLevel: matchExtraLevel(cell(r, extraIdx)),
+    extraPaid: /^(yes|oui|true|1|paid|✓|x)$/i.test(cell(r, extraPaidIdx))
+  }));
+  showImportPreview(filename);
+}
+
+function parseJsonImport(data, filename) {
+  const list = Array.isArray(data) ? data : (data && data.contributors) || [];
+  if(!list.length) { showToast('⚠️ No members found in file'); return; }
+  importRows = list.filter(m => m && m.name).map(m => ({
+    name: String(m.name).trim(), phone: m.phone || '', status: 'unpaid', cashier: m.cashier || '',
+    family: m.family || '', notes: m.notes || '',
+    payments: m.payments && typeof m.payments === 'object' ? m.payments : null,
+    months: [], extraLevel: matchExtraLevel(m.extraLevel), extraPaid: !!m.extraPaid, extraPaidDate: m.extraPaidDate || ''
+  }));
+  showImportPreview(filename);
 }
 
 function confirmImport() {
@@ -4810,17 +5853,27 @@ function confirmImport() {
 
   let added = 0, skipped = 0;
   importRows.forEach(row => {
-    // Duplicate check
     const exists = c.contributors.find(m => m.name.toLowerCase() === row.name.toLowerCase());
     if(exists && skipDupes) { skipped++; return; }
 
+    let payments = {};
+    if(row.payments) {
+      Object.keys(row.payments).forEach(k => { if(/^\d{4}-\d{2}$/.test(k)) payments[k] = row.payments[k]; });
+    } else {
+      (row.months || []).forEach(k => { payments[k] = { status: 'paid', amount: getContributionAmount(), date: '' }; });
+    }
+    const curKey = monthKey();
+    const paidNow = payments[curKey] && payments[curKey].status === 'paid';
     c.contributors.push({
       id: 'c_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
       name: row.name,
       phone: row.phone,
       cashier: row.cashier,
-      status: ['paid','unpaid','advance'].includes(row.status) ? row.status : 'unpaid',
-      amount: 0, date: '', notes: '', method: null, waafiNumber: ''
+      family: row.family || '',
+      status: paidNow ? 'paid' : (['paid','unpaid','advance'].includes(row.status) && !row.months.length && !row.payments ? row.status : 'unpaid'),
+      amount: paidNow ? (payments[curKey].amount || 0) : 0, date: paidNow ? (payments[curKey].date || '') : '', notes: row.notes || '', method: null, waafiNumber: '',
+      payments,
+      extraLevel: row.extraLevel || '', extraPaid: !!row.extraPaid && !!row.extraLevel, extraPaidDate: row.extraPaidDate || ''
     });
     added++;
   });
@@ -4871,6 +5924,7 @@ function confirmChangePin() {
   }
 
   c.admin.pin = newPin;
+  c.admin.pinChanged = true;
   // Also update any admin-cashier entry
   if (c.cashiers) {
     const adminCashier = c.cashiers.find(ca => ca.isAdminCashier);
